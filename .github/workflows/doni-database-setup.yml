@@ -1,0 +1,117 @@
+name: DONI Database Setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Migrate Neon and create SUPER_ADMIN
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+      DONI_ADMIN_EMAIL: ${{ secrets.DONI_ADMIN_EMAIL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DATABASE_URL DIRECT_URL DONI_ADMIN_USERNAME DONI_ADMIN_PASSWORD DONI_ADMIN_EMAIL; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          if [ "${#DONI_ADMIN_PASSWORD}" -lt 10 ]; then
+            echo "DONI_ADMIN_PASSWORD must contain at least 10 characters."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply production migrations
+        run: npx prisma migrate deploy
+
+      - name: Create or update SUPER_ADMIN
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+          const { randomBytes, scryptSync } = require('node:crypto');
+
+          const prisma = new PrismaClient();
+          const N = 16384, r = 8, p = 1, keylen = 64;
+
+          function hashPassword(password) {
+            if (!password || password.length < 10) throw new Error('password_too_short');
+            const salt = randomBytes(16).toString('hex');
+            const hash = scryptSync(password, salt, keylen, {
+              N, r, p, maxmem: 64 * 1024 * 1024
+            }).toString('hex');
+            return `scrypt$${N}$${r}$${p}$${salt}$${hash}`;
+          }
+
+          async function main() {
+            const username = process.env.DONI_ADMIN_USERNAME.trim().toLowerCase();
+            const email = process.env.DONI_ADMIN_EMAIL.trim().toLowerCase();
+            const passwordHash = hashPassword(process.env.DONI_ADMIN_PASSWORD);
+
+            const existingByEmail = await prisma.portalUser.findUnique({ where: { email } });
+            if (existingByEmail && existingByEmail.username !== username) {
+              throw new Error('admin_email_already_used_by_another_username');
+            }
+
+            const user = await prisma.portalUser.upsert({
+              where: { username },
+              update: {
+                email,
+                passwordHash,
+                role: 'SUPER_ADMIN',
+                active: true,
+              },
+              create: {
+                username,
+                email,
+                passwordHash,
+                role: 'SUPER_ADMIN',
+                active: true,
+                fullName: 'DONI Super Admin',
+              },
+              select: { id: true, username: true, email: true, role: true, active: true },
+            });
+
+            console.log(`SUPER_ADMIN ready: ${user.username} (${user.role})`);
+          }
+
+          main()
+            .catch((error) => {
+              console.error(error instanceof Error ? error.message : error);
+              process.exitCode = 1;
+            })
+            .finally(async () => {
+              await prisma.$disconnect();
+            });
+          NODE
+
+      - name: Setup complete
+        run: echo "DONI database migrations applied and SUPER_ADMIN configured successfully."
