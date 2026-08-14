@@ -1,0 +1,415 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") directUrl = env("DIRECT_URL") }
+enum UserRole { SUPER_ADMIN ADMIN AGENT }
+enum PaymentStatus { CREATED PENDING PAID FAILED EXPIRED REFUNDED }
+enum ManualPaymentReviewStatus { PENDING NEEDS_INFO APPROVED REJECTED SUPERSEDED }
+enum TicketStatus { CREATED TO_BE_PAID PENDING_MANUAL_ISSUE ISSUING ISSUED FAILED CANCELLED }
+enum DeliveryStatus { PENDING PARTIAL DELIVERED FAILED }
+model PortalUser {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String
+  fullName     String?
+  email        String?     @unique
+  role         UserRole    @default(AGENT)
+  country      String?
+  active       Boolean     @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  sessions     PortalSession[]
+  auditLogs    AuditLog[]
+  assignedConversations DoniConversation[] @relation("AssignedAgent")
+  conversationMessages ConversationMessage[] @relation("AgentMessages")
+  manualPaymentReviews ManualPaymentReview[] @relation("ManualPaymentReviewer")
+}
+model PortalSession {
+  id        String     @id @default(cuid())
+  userId    String
+  user      PortalUser @relation(fields:[userId],references:[id],onDelete:Cascade)
+  tokenHash String     @unique
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+  @@index([userId, expiresAt])
+}
+model DoniConversation {
+  id              String   @id @default(cuid())
+  waId            String
+  customerId      String?
+  customer        CustomerProfile? @relation(fields:[customerId],references:[id],onDelete:SetNull)
+  country         String?
+  businessSegment String   @default("flights")
+  lockedLanguage  String?
+  language        String?
+  status          String   @default("ACTIVE")
+  currentSegment  String   @default("segment_language")
+  previousSegment String?
+  state           Json     @default("{}")
+  agentRequired   Boolean  @default(false)
+  lastMessageAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  payments        Payment[]
+  tickets         Ticket[]
+  assignedAgentId String?
+  assignedAgent   PortalUser? @relation("AssignedAgent", fields:[assignedAgentId],references:[id],onDelete:SetNull)
+  agentTakenOverAt DateTime?
+  agentReleasedAt DateTime?
+  messages        ConversationMessage[]
+
+  @@index([waId, status, updatedAt])
+  @@index([currentSegment, updatedAt])
+  @@index([status, agentRequired, updatedAt])
+  @@index([assignedAgentId, status])
+  @@index([customerId, updatedAt])
+}
+
+model CustomerProfile {
+  id                String   @id @default(cuid())
+  customerCode      String   @unique
+  phone             String   @unique
+  displayName       String?
+  email             String?
+  country           String?
+  preferredLanguage String?
+  firstSeenAt       DateTime @default(now())
+  lastSeenAt        DateTime @default(now())
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  conversations     DoniConversation[]
+  @@index([email])
+  @@index([country, lastSeenAt])
+}
+
+model Payment { id String @id @default(cuid()) reference String @unique conversationId String? conversation DoniConversation? @relation(fields:[conversationId],references:[id]) provider String currency String amount Decimal @db.Decimal(12,2) status PaymentStatus @default(CREATED) providerPayload Json? expiresAt DateTime? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt events PaymentEvent[] manualReviews ManualPaymentReview[] }
+model PaymentEvent { id String @id @default(cuid()) paymentId String? payment Payment? @relation(fields:[paymentId],references:[id],onDelete:SetNull) provider String providerEventId String eventType String reference String? payload Json? createdAt DateTime @default(now()) @@unique([provider,providerEventId]) @@index([reference,createdAt]) }
+model ManualPaymentReview {
+  id                String                    @id @default(cuid())
+  paymentId         String
+  payment           Payment                   @relation(fields:[paymentId],references:[id],onDelete:Cascade)
+  mediaId           String
+  mimeType          String?
+  receiptBytes      Bytes?
+  receiptSha256     String?
+  receiptSize       Int?
+  status            ManualPaymentReviewStatus @default(PENDING)
+  ocrStatus         String                    @default("pending")
+  ocrConfidence     Float?
+  ocrAmount         Decimal?                  @db.Decimal(12,2)
+  ocrCurrency       String?
+  ocrReference      String?
+  ocrDate           DateTime?
+  ocrSender         String?
+  ocrReceiver       String?
+  ocrPayload        Json?
+  comparisonStatus  String?
+  comparisonNotes   Json?
+  reviewerNotes     String?
+  reviewedById      String?
+  reviewedBy        PortalUser?               @relation("ManualPaymentReviewer",fields:[reviewedById],references:[id],onDelete:SetNull)
+  reviewedAt        DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  @@index([status, createdAt])
+  @@index([paymentId, createdAt])
+}
+
+model Ticket {
+  id                String         @id @default(cuid())
+  reference         String         @unique
+  conversationId    String?
+  conversation      DoniConversation? @relation(fields:[conversationId],references:[id])
+  status            TicketStatus   @default(CREATED)
+  pnr               String?
+  ticketNumber      String?
+  providerBookingId String?
+  issuedBy          String?
+  issuedAt          DateTime?
+  deliveryStatus    DeliveryStatus @default(PENDING)
+  deliveredAt       DateTime?
+  payload           Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  events            TicketEvent[]
+  deliveries        TicketDelivery[]
+  @@index([status, createdAt])
+}
+model TicketEvent {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields:[ticketId],references:[id],onDelete:Cascade)
+  eventType String
+  status    String
+  actor     String?
+  details   Json?
+  createdAt DateTime @default(now())
+  @@index([ticketId, createdAt])
+}
+model TicketDelivery {
+  id        String   @id @default(cuid())
+  ticketId  String
+  ticket    Ticket   @relation(fields:[ticketId],references:[id],onDelete:Cascade)
+  channel   String
+  status    String
+  error     String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  @@index([ticketId, createdAt])
+}
+model AuditLog { id String @id @default(cuid()) userId String? user PortalUser? @relation(fields:[userId],references:[id]) action String entity String? entityId String? metadata Json? createdAt DateTime @default(now()) }
+
+model AuthAttempt {
+  id          String   @id @default(cuid())
+  fingerprint String
+  success     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  @@index([fingerprint, createdAt])
+}
+
+model ConversationMessage {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      DoniConversation @relation(fields:[conversationId],references:[id],onDelete:Cascade)
+  direction         String
+  senderType        String
+  senderUserId      String?
+  senderUser        PortalUser? @relation("AgentMessages", fields:[senderUserId], references:[id], onDelete:SetNull)
+  contentType       String   @default("text")
+  text              String?
+  providerMessageId String?  @unique
+  metadata          Json?
+  createdAt         DateTime @default(now())
+  @@index([conversationId, createdAt])
+}
+
+
+model AppSetting {
+  key            String   @id
+  category       String
+  value          Json?
+  encryptedValue String?
+  isSecret       Boolean  @default(false)
+  updatedBy      String?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  @@index([category, key])
+}
+
+model ManualFlightInventory {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  active          Boolean  @default(true)
+  origin          String
+  destination     String
+  airlineCode     String
+  airlineName     String
+  flightNumber    String
+  departureTime   String
+  arrivalTime     String
+  durationMinutes Int
+  adultPrice      Decimal  @db.Decimal(12,2)
+  childPrice      Decimal? @db.Decimal(12,2)
+  infantPrice     Decimal? @db.Decimal(12,2)
+  currency        String
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([active, origin, destination])
+  @@index([airlineCode, active])
+}
+
+model FlightTracking {
+  id                 String   @id @default(cuid())
+  ticketId           String?
+  ticketReference    String?
+  pnr                String?
+  ticketNumber       String?
+  airlineCode        String
+  flightNumber       String
+  origin             String
+  destination        String
+  scheduledDeparture DateTime
+  scheduledArrival   DateTime?
+  estimatedDeparture DateTime?
+  estimatedArrival   DateTime?
+  actualDeparture    DateTime?
+  actualArrival      DateTime?
+  delayMinutes       Int?
+  gate               String?
+  terminal           String?
+  flightStatus       String   @default("scheduled")
+  providerUsed       String?
+  rawData            Json?
+  clientPhone        String?
+  clientEmail        String?
+  clientLanguage     String?  @default("fr")
+  active             Boolean  @default(true)
+  lastCheckAt        DateTime?
+  nextCheckAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  alerts             FlightAlert[]
+  checkinServices    CheckinService[]
+  baggageServices    BaggageService[]
+  incidents          FlightIncident[]
+  @@index([active, nextCheckAt])
+  @@index([airlineCode, flightNumber, scheduledDeparture])
+  @@index([pnr])
+  @@index([ticketReference])
+}
+
+model FlightAlert {
+  id          String   @id @default(cuid())
+  trackingId  String
+  tracking    FlightTracking @relation(fields:[trackingId], references:[id], onDelete:Cascade)
+  alertType   String
+  status      String   @default("pending")
+  scheduledAt DateTime
+  sentAt      DateTime?
+  language    String?  @default("fr")
+  channel     String   @default("whatsapp")
+  recipient   String?
+  message     String
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([trackingId, alertType])
+  @@index([status, scheduledAt])
+}
+
+model CheckinService {
+  id             String   @id @default(cuid())
+  trackingId     String
+  tracking       FlightTracking @relation(fields:[trackingId], references:[id], onDelete:Cascade)
+  status         String   @default("offered")
+  price          Decimal? @db.Decimal(10,2)
+  currency       String?  @default("USD")
+  paymentStatus  String?
+  seatPreference String?
+  completedBy    String?
+  completedAt    DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([trackingId, status])
+}
+
+model BaggageService {
+  id             String   @id @default(cuid())
+  trackingId     String
+  tracking       FlightTracking @relation(fields:[trackingId], references:[id], onDelete:Cascade)
+  status         String   @default("requested")
+  quantity       Int      @default(1)
+  weightKg       Int?
+  price          Decimal? @db.Decimal(10,2)
+  currency       String?  @default("USD")
+  paymentStatus  String?
+  confirmedBy    String?
+  confirmedAt    DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([trackingId, status])
+  @@index([status, createdAt])
+}
+
+model FlightIncident {
+  id          String   @id @default(cuid())
+  trackingId  String
+  tracking    FlightTracking @relation(fields:[trackingId], references:[id], onDelete:Cascade)
+  incidentKey String
+  incidentType String
+  severity    String   @default("warning")
+  status      String   @default("open")
+  title       String
+  message     String
+  metadata    Json?
+  acknowledgedBy String?
+  acknowledgedAt DateTime?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@unique([trackingId, incidentKey])
+  @@index([status, severity, createdAt])
+  @@index([trackingId, createdAt])
+}
+
+
+model PostBookingRequest {
+  id                String   @id @default(cuid())
+  reference         String
+  ticketId          String?
+  conversationId    String?
+  phone             String?
+  requestType       String
+  status            String   @default("request_created")
+  priority          String?
+  payload           Json?
+  clientConsentText String?
+  adminNotes        String?
+  airlineDecision   String?
+  penaltyAmount     Decimal? @db.Decimal(10,2)
+  penaltyCurrency   String?
+  resolvedAt        DateTime?
+  createdBy         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  events            PostBookingEvent[]
+  refunds           RefundRequest[]
+  @@index([reference, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([requestType, status])
+  @@index([conversationId, createdAt])
+}
+
+model PostBookingEvent {
+  id          String   @id @default(cuid())
+  requestId   String
+  request     PostBookingRequest @relation(fields:[requestId], references:[id], onDelete:Cascade)
+  eventType   String
+  actorUserId String?
+  fromStatus  String?
+  toStatus    String?
+  details     Json?
+  createdAt   DateTime @default(now())
+  @@index([requestId, createdAt])
+}
+
+model RefundRequest {
+  id              String   @id @default(cuid())
+  postBookingId   String?
+  postBooking     PostBookingRequest? @relation(fields:[postBookingId], references:[id], onDelete:SetNull)
+  paymentId       String?
+  ticketReference String?
+  phone           String?
+  amount          Decimal  @db.Decimal(12,2)
+  currency        String
+  reason          String?
+  status          String   @default("requested")
+  refundMethod    String?
+  refundReference String?
+  requestedBy     String?
+  approvedBy      String?
+  processedBy     String?
+  processedAt     DateTime?
+  notes           String?
+  providerPayload Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  events          RefundEvent[]
+  @@index([status, createdAt])
+  @@index([paymentId, createdAt])
+  @@index([ticketReference, createdAt])
+}
+
+model RefundEvent {
+  id          String   @id @default(cuid())
+  refundId    String
+  refund      RefundRequest @relation(fields:[refundId], references:[id], onDelete:Cascade)
+  eventType   String
+  actorUserId String?
+  details     Json?
+  createdAt   DateTime @default(now())
+  @@index([refundId, createdAt])
+}
