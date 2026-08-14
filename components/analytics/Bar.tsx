@@ -1,0 +1,1 @@
+export function Bar({value,max,label,right}:{value:number;max:number;label:string;right?:string}){const w=max>0?Math.max(2,Math.round(value/max*100)):0;return <div className="barRow"><div className="barHead"><span>{label}</span><strong>{right??value}</strong></div><div className="barTrack"><div className="barFill" style={{width:`${w}%`}}/></div></div>}

@@ -1,0 +1,797 @@
+[
+  {
+    "file": "public/class-client-portal.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/client/request-otp'"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/client/verify-otp'"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/client/logout'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/whatsapp/webhook'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers/(?P<id>\\d+)'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers/(?P<id>\\d+)/toggle'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers/(?P<id>\\d+)/health'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers/(?P<id>\\d+)/test-send'"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/whatsapp/numbers/(?P<id>\\d+)/test-language'"
+  },
+  {
+    "file": "live-ops/class-payment-webhooks.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/webhook/stripe'"
+  },
+  {
+    "file": "live-ops/class-payment-webhooks.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/webhook/mercadopago'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/settings'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/test-connection'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/test-email'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/test-sms'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/templates'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/template-map'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/template-map/(?P<id>\\d+)'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/logs'"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/brevo/stats'"
+  },
+  {
+    "file": "brevo/class-brevo-webhook.php",
+    "namespace_expr": "'jcap/v1'",
+    "route_expr": "'/brevo/webhook'"
+  },
+  {
+    "file": "ai-understanding/class-ai-rest-api.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/ai/parse'"
+  },
+  {
+    "file": "ai-understanding/class-ai-rest-api.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/ai/stats'"
+  },
+  {
+    "file": "ai-understanding/class-ai-rest-api.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/ai/calls'"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace_expr": "self::REST_NAMESPACE",
+    "route_expr": "'/webhook'"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace_expr": "self::REST_NAMESPACE",
+    "route_expr": "'/airports/status'"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace_expr": "self::REST_NAMESPACE",
+    "route_expr": "'/airports/import'"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace_expr": "self::REST_NAMESPACE",
+    "route_expr": "'/airports/rebuild'"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace_expr": "self::REST_NAMESPACE",
+    "route_expr": "'/airports/search'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/generate'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/generate-manual'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/regenerate'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/(?P<booking_id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/preview/(?P<booking_id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/send-whatsapp'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/send-email'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/start-tracking'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/stop-tracking'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/offer-checkin'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/offer-baggage'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/add-pnr-ticket'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/booking-search'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/booking-details/(?P<id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/fetch-from-provider'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/fetch-passengers/(?P<booking_id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/fetch-segments/(?P<booking_id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/fetch-payment/(?P<booking_id>\\d+)'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/ocr-passport'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/eticket/generate-for-passenger'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/booking/(?P<order_id>\\d+)/passenger-dossier'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/booking/(?P<order_id>\\d+)/passenger-override'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/etickets'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/etickets/kpis'"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/etickets/queue'"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/status'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/overview'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/sessions'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/session/(?P<id>[A-Za-z0-9_-]+)'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/timeline/(?P<id>[A-Za-z0-9_-]+)'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/errors'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/ai-resolution/(?P<id>\\d+)'"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/flow-tracker/action/(?P<action_type>[a-z_-]+)'"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/webhooks/stripe'"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/webhooks/mercado-pago'"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/webhooks/bazikap'"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/webhooks/paypal'"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace_expr": "'doni-v2/v1'",
+    "route_expr": "'/webhooks/ping'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/login'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/logout'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/magic-link'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/magic-login'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/2fa-verify'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/accept-invite'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/debug'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/revenue-7d'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/country-breakdown'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/active-alerts'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/pending-approvals'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/system-health'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/top-agents'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/unread-count'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/(?P<id>\\d+)/read'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/mark-all-read'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/preferences'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/preferences/save'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/notifications/test'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/me'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/navigation'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/permissions'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/countries'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/dashboard'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/switch-country'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/live-conversations'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/flow-tracker'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/orders'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/payments'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/finance'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/ticketing'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/etickets'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/crm'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/create'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/(?P<id>\\d+)/update'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/(?P<id>\\d+)/disable'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/(?P<id>\\d+)/enable'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/(?P<id>\\d+)/permissions'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/users/(?P<id>\\d+)/countries'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/invites'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/invites/create'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/invites/(?P<id>\\d+)/revoke'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/audit-logs'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/country-settings'"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/portal/country-settings/save'"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-status/query'"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-status/track'"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-status/untrack'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/logs'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/(?P<id>\\d+)'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/refresh'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/send'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/pause'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/resume'"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace_expr": "self::NS",
+    "route_expr": "'/flight-alerts/override-status'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/overview'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/cashflow'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/expenses'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/accounts'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/gateways'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/payment-status'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/transactions'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/budgets'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/sales'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/profit-loss'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/health-score'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/ai-advice'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/ai-advice/regenerate'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/ai-advice/(?P<id>\\d+)/(?P<action>apply|dismiss)'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/transaction/create'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/sync-orders'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/sources'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/source/create'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/source/(?P<id>\\d+)/sync'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/source/(?P<id>\\d+)/delete'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/sources/sync-all'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/account/create'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/budget/create'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/categories'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/booking-stats'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/sync-ticketing-costs'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/transaction/(?P<id>\\d+)/delete'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/transaction/(?P<id>\\d+)/request-delete'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/requests/pending'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/request/(?P<id>\\d+)/approve'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/request/(?P<id>\\d+)/reject'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/me'"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace_expr": "$ns",
+    "route_expr": "'/finance/settings/save'"
+  }
+]

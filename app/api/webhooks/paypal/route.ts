@@ -1,0 +1,1 @@
+import {processPayPal} from '../../../../services/payments/webhooks';export async function POST(req:Request){const raw=await req.text();const r=await processPayPal(req,raw);return Response.json(r,{status:r.status});}

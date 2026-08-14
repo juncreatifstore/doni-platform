@@ -1,0 +1,727 @@
+[
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_notices"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_clear_safe_errors"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_init"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_init"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "upgrader_process_complete"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "plugins_loaded"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_notices"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_clear_safe_errors"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_contact"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "type": "action",
+    "hook": "admin_post_nopriv_doni_v2_contact"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "public/class-public-home.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "public/class-public-home.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "public/class-public-home.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "public/class-public-home.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "public/class-public-router.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "public/class-public-router.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "public/class-public-router.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "filter",
+    "hook": "doni_v2_outbound_whatsapp_number_id"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "filter",
+    "hook": "doni_v2_initial_segment"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "filter",
+    "hook": "doni_v2_force_session_language"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "filter",
+    "hook": "doni_v2_initial_segment"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "type": "filter",
+    "hook": "doni_v2_initial_state"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_enqueue_scripts"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_save_settings"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_save_flags"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_panic_off"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_clear_initial_pwd"
+  },
+  {
+    "file": "admin/class-admin-ai-settings.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "admin/class-admin-ai-settings.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_save_ai_settings"
+  },
+  {
+    "file": "admin/class-admin-ai-settings.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_test_ai_ping"
+  },
+  {
+    "file": "admin/class-admin-cleanup.php",
+    "type": "action",
+    "hook": "admin_print_styles"
+  },
+  {
+    "file": "admin/class-admin-cleanup.php",
+    "type": "action",
+    "hook": "admin_head"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "action",
+    "hook": "doni_v2_passenger_saved"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "action",
+    "hook": "doni_v2_payment_succeeded"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "action",
+    "hook": "doni_v2_payment_failed"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "action",
+    "hook": "doni_v2_booking_ticketed"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "action",
+    "hook": "plugins_loaded"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "filter",
+    "hook": "doni_v2_ocr_passport"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "type": "filter",
+    "hook": "doni_v2_diagnostics_layers"
+  },
+  {
+    "file": "live-ops/class-payment-webhooks.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "live-ops/class-live-ops-router.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "live-ops/class-live-ops-router.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "live-ops/class-live-ops-router.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "brevo/class-brevo-wp-mail-interceptor.php",
+    "type": "filter",
+    "hook": "pre_wp_mail"
+  },
+  {
+    "file": "brevo/class-brevo-webhook.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "ai-understanding/class-ai-rest-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "core/class-router.php",
+    "type": "action",
+    "hook": "doni_v2_purge_processed_inbox"
+  },
+  {
+    "file": "eticket-center/class-eticket-verification.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "eticket-center/class-eticket-verification.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-trigger.php",
+    "type": "action",
+    "hook": "doni_v2_payment_succeeded"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-trigger.php",
+    "type": "action",
+    "hook": "doni_v2_booking_ticketed"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-trigger.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_auto_generate"
+  },
+  {
+    "file": "eticket-center/class-eticket-test-mode.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "eticket-center/class-eticket-test-mode.php",
+    "type": "action",
+    "hook": "admin_post_"
+  },
+  {
+    "file": "eticket-center/class-eticket-delivery-service.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_whatsapp_retry"
+  },
+  {
+    "file": "eticket-center/class-eticket-delivery-service.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_email_retry"
+  },
+  {
+    "file": "eticket-center/class-eticket-pdf-renderer.php",
+    "type": "filter",
+    "hook": "doni_v2_pdf_engine_order"
+  },
+  {
+    "file": "eticket-center/class-eticket-admin.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "eticket-center/class-eticket-admin.php",
+    "type": "filter",
+    "hook": "user_has_cap"
+  },
+  {
+    "file": "eticket-center/class-eticket-branding.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "eticket-center/class-eticket-branding.php",
+    "type": "action",
+    "hook": "admin_post_"
+  },
+  {
+    "file": "eticket-center/class-flight-tracking-service.php",
+    "type": "action",
+    "hook": "doni_v2_flight_tracking_tick"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-delivery.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_auto_deliver"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "includes/class-pdf-lib-loader.php",
+    "type": "action",
+    "hook": "admin_notices"
+  },
+  {
+    "file": "includes/class-pdf-lib-loader.php",
+    "type": "filter",
+    "hook": "doni_v2_diagnostics_pdf_lib"
+  },
+  {
+    "file": "includes/class-credential-guard.php",
+    "type": "filter",
+    "hook": "pre_update_option_{$opt}"
+  },
+  {
+    "file": "includes/class-credential-guard.php",
+    "type": "filter",
+    "hook": "pre_update_option"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_enqueue_scripts"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_save_settings"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_save_flags"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_post_doni_v2_panic_off"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_cleanup_cron"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_anti_silence_cron"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_monitor_cron"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_hold_expiry_cron"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_payment_expiry_cron"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "admin_notices"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_notifications_gc"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_finance_sync"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_finance_ai_regen"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_flow_tracker_scan"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "action",
+    "hook": "doni_v2_alert_scan"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "filter",
+    "hook": "jcap_whatsapp_intent_handler"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "filter",
+    "hook": "plugin_action_links_"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "type": "filter",
+    "hook": "cron_schedules"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-admin.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-admin.php",
+    "type": "action",
+    "hook": "admin_enqueue_scripts"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "template_redirect"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "admin_init"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "send_headers"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "action",
+    "hook": "login_init"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "filter",
+    "hook": "query_vars"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "type": "filter",
+    "hook": "wp_headers"
+  },
+  {
+    "file": "portal/class-doni-portal-auth.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_booking_created"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_order_created"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_payment_succeeded"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_payment_failed"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_payment_pending"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_manual_payment_received"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_generated"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_failed"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_eticket_sent"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_booking_ticketed"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_refund_requested"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_conversation_started"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_conversation_waiting"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_flight_alert"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_security_alert"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_notifications_health_check"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_notifications_security_watch"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "type": "action",
+    "hook": "doni_v2_notifications_cleanup"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-scheduler.php",
+    "type": "filter",
+    "hook": "cron_schedules"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-rest.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-inbound-handler.php",
+    "type": "action",
+    "hook": "doni_v2_whatsapp_message_received"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-inbound-handler.php",
+    "type": "filter",
+    "hook": "doni_v2_pre_dispatch_intercept"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "type": "action",
+    "hook": "admin_notices"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "type": "action",
+    "hook": "init"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-orchestrator.php",
+    "type": "action",
+    "hook": "doni_v2_booking_ticketed"
+  },
+  {
+    "file": "finance-center/class-finance-admin.php",
+    "type": "action",
+    "hook": "admin_menu"
+  },
+  {
+    "file": "finance-center/class-finance-admin.php",
+    "type": "filter",
+    "hook": "user_has_cap"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "type": "action",
+    "hook": "rest_api_init"
+  }
+]

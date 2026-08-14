@@ -1,0 +1,2 @@
+import { NextResponse } from 'next/server';import { requireApiUser } from '@/lib/auth/session';import { getFinanceMetrics } from '@/services/analytics/dashboard';
+export async function GET(){const a=await requireApiUser('ADMIN');if(!a.ok)return NextResponse.json({success:false,error:a.error},{status:a.status});try{return NextResponse.json({success:true,data:await getFinanceMetrics()})}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'finance_failed'},{status:500})}}

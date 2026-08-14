@@ -1,0 +1,1492 @@
+[
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "names"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "silently"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "not"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "not"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "global"
+  },
+  {
+    "file": "doni-flight-engine-v2.php",
+    "namespace": "maps directly to a folder name (Admin → admin/, Core → core/, etc.)\n\tif ( ! empty( $parts ) ) {\n\t\t$folder = strtolower( $parts[0] )",
+    "class": "did"
+  },
+  {
+    "file": "public/class-public-layout.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicLayout"
+  },
+  {
+    "file": "public/class-public-actions.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicActions"
+  },
+  {
+    "file": "public/class-public-warroom.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicWarroom"
+  },
+  {
+    "file": "public/class-legal-pages.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "LegalPages"
+  },
+  {
+    "file": "public/class-public-dashboards.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicDashboards"
+  },
+  {
+    "file": "public/class-public-overview.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicOverview"
+  },
+  {
+    "file": "public/class-client-portal.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "ClientPortal"
+  },
+  {
+    "file": "public/class-public-ticketing.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicTicketing"
+  },
+  {
+    "file": "public/class-public-home.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicHome"
+  },
+  {
+    "file": "public/class-country-resolver.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "CountryResolver"
+  },
+  {
+    "file": "public/class-auth-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "AuthEngine"
+  },
+  {
+    "file": "public/class-public-auth.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicAuth"
+  },
+  {
+    "file": "public/class-analytics-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "AnalyticsEngine"
+  },
+  {
+    "file": "public/class-public-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Public_",
+    "class": "PublicRouter"
+  },
+  {
+    "file": "providers/class-agent-quote-provider.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "AgentQuoteProvider"
+  },
+  {
+    "file": "providers/class-duffel-provider.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "DuffelProvider"
+  },
+  {
+    "file": "providers/class-pkfare-passenger-validator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "PKFarePassengerValidator"
+  },
+  {
+    "file": "providers/class-pkfare-passenger-validator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "from"
+  },
+  {
+    "file": "providers/class-google-fallback-provider.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "GoogleFallbackProvider"
+  },
+  {
+    "file": "providers/class-manual-inventory-provider.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Providers",
+    "class": "ManualInventoryProvider"
+  },
+  {
+    "file": "flight/class-ocr-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "OCREngine"
+  },
+  {
+    "file": "flight/class-provider-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "ProviderRouter"
+  },
+  {
+    "file": "flight/class-repricing-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "RepricingEngine"
+  },
+  {
+    "file": "flight/class-flight-offer-validator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "FlightOfferValidator"
+  },
+  {
+    "file": "flight/class-results-filter.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "ResultsFilter"
+  },
+  {
+    "file": "flight/class-pricing-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "PricingEngine"
+  },
+  {
+    "file": "flight/class-compliance-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "ComplianceEngine"
+  },
+  {
+    "file": "flight/class-oag-client.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "OagClient"
+  },
+  {
+    "file": "flight/class-oag-resolver.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "OagResolver"
+  },
+  {
+    "file": "flight/class-comparison-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "ComparisonEngine"
+  },
+  {
+    "file": "flight/class-comparison-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "if"
+  },
+  {
+    "file": "flight/class-airline-country-map.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "AirlineCountryMap"
+  },
+  {
+    "file": "flight/class-booking-integrity.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "BookingIntegrity"
+  },
+  {
+    "file": "flight/class-delivery-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "DeliveryEngine"
+  },
+  {
+    "file": "flight/class-ancillary-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "AncillaryEngine"
+  },
+  {
+    "file": "flight/class-airport-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "AirportEngine"
+  },
+  {
+    "file": "flight/class-ticketing-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "TicketingEngine"
+  },
+  {
+    "file": "flight/class-offer-normalizer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "OfferNormalizer"
+  },
+  {
+    "file": "flight/class-flight-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "FlightEngine"
+  },
+  {
+    "file": "flight/class-passenger-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Flight",
+    "class": "PassengerEngine"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-webhook.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\WhatsApp",
+    "class": "WhatsAppWebhook"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-number-manager.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\WhatsApp",
+    "class": "WhatsAppNumberManager"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-admin-ui.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\WhatsApp",
+    "class": "WhatsAppAdminUI"
+  },
+  {
+    "file": "whatsapp/class-whatsapp-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\WhatsApp",
+    "class": "WhatsAppAPI"
+  },
+  {
+    "file": "admin/class-admin-menu.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "AdminMenu"
+  },
+  {
+    "file": "admin/class-dashboard-problems.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardProblems"
+  },
+  {
+    "file": "admin/class-dashboard-manual-payments.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardManualPayments"
+  },
+  {
+    "file": "admin/class-dashboard-session-view.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardSessionView"
+  },
+  {
+    "file": "admin/class-dashboards-extra.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardPayments"
+  },
+  {
+    "file": "admin/class-dashboards-extra.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardTickets"
+  },
+  {
+    "file": "admin/class-dashboards-extra.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardDiagnostics"
+  },
+  {
+    "file": "admin/class-dashboard-data-health.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardDataHealth"
+  },
+  {
+    "file": "admin/class-admin-ai-settings.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "AdminAiSettings"
+  },
+  {
+    "file": "admin/class-dashboard-monitor.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardMonitor"
+  },
+  {
+    "file": "admin/class-admin-cleanup.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "AdminCleanup"
+  },
+  {
+    "file": "admin/class-dashboard-post-booking-requests.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Admin",
+    "class": "DashboardPostBookingRequests"
+  },
+  {
+    "file": "database/migrations.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Database",
+    "class": "Migrations"
+  },
+  {
+    "file": "database/schema.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Database",
+    "class": "Schema"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Phase6Bridge",
+    "class": "existence"
+  },
+  {
+    "file": "phase6-bridge/class-phase6-integration.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Phase6Bridge",
+    "class": "Phase6Integration"
+  },
+  {
+    "file": "live-ops/class-payment-webhooks.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "PaymentWebhooks"
+  },
+  {
+    "file": "live-ops/class-live-ops-bookings.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsBookings"
+  },
+  {
+    "file": "live-ops/class-live-ops-post-booking.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsPostBooking"
+  },
+  {
+    "file": "live-ops/class-copilot-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "CopilotEngine"
+  },
+  {
+    "file": "live-ops/class-live-ops-companies-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsCompaniesPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-invoices-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsInvoicesPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-data-health.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsDataHealth"
+  },
+  {
+    "file": "live-ops/class-live-ops-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsRouter"
+  },
+  {
+    "file": "live-ops/class-live-ops-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsAPI"
+  },
+  {
+    "file": "live-ops/class-live-ops-templates-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsTemplatesPage"
+  },
+  {
+    "file": "live-ops/class-export-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "ExportEngine"
+  },
+  {
+    "file": "live-ops/class-live-ops-problems.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsProblems"
+  },
+  {
+    "file": "live-ops/class-live-ops-alerts.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsAlerts"
+  },
+  {
+    "file": "live-ops/class-live-ops-tickets-to-issue.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsTicketsToIssue"
+  },
+  {
+    "file": "live-ops/class-live-ops-dashboard.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsDashboard"
+  },
+  {
+    "file": "live-ops/class-live-ops-flow-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsFlowPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-refunds-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsRefundsPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-triggers-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsTriggersPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-agents.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsAgents"
+  },
+  {
+    "file": "live-ops/class-live-ops-documents-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsDocumentsPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-manual-queue.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsManualQueue"
+  },
+  {
+    "file": "live-ops/class-live-ops-departments-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsDepartmentsPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-analytics-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsAnalyticsPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-copilot-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsCopilotPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-passengers-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsPassengersPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-conversations.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsConversations"
+  },
+  {
+    "file": "live-ops/class-notifications-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "NotificationsEngine"
+  },
+  {
+    "file": "live-ops/class-live-ops-contacts.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsContacts"
+  },
+  {
+    "file": "live-ops/class-live-ops-silent.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsSilent"
+  },
+  {
+    "file": "live-ops/class-alert-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "AlertEngine"
+  },
+  {
+    "file": "live-ops/class-live-ops-oag-test-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsOagTestPage"
+  },
+  {
+    "file": "live-ops/class-triggers-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "TriggersEngine"
+  },
+  {
+    "file": "live-ops/class-live-ops-layout.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsLayout"
+  },
+  {
+    "file": "live-ops/class-live-ops-labels-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsLabelsPage"
+  },
+  {
+    "file": "live-ops/class-audit-log.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "AuditLog"
+  },
+  {
+    "file": "live-ops/class-live-ops-audit-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsAuditPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-payments.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsPayments"
+  },
+  {
+    "file": "live-ops/class-live-ops-help-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsHelpPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-settings-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsSettingsPage"
+  },
+  {
+    "file": "live-ops/class-live-ops-settings-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "not"
+  },
+  {
+    "file": "live-ops/class-live-ops-health.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "LiveOpsHealth"
+  },
+  {
+    "file": "live-ops/class-contact-badges.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\LiveOps",
+    "class": "ContactBadges"
+  },
+  {
+    "file": "brevo/class-brevo-sms-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoSMSService"
+  },
+  {
+    "file": "brevo/class-brevo-settings.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoSettings"
+  },
+  {
+    "file": "brevo/class-brevo-email-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoEmailService"
+  },
+  {
+    "file": "brevo/class-brevo-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoAPI"
+  },
+  {
+    "file": "brevo/class-brevo-template-map.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoTemplateMap"
+  },
+  {
+    "file": "brevo/class-brevo-wp-mail-interceptor.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoWPMailInterceptor"
+  },
+  {
+    "file": "brevo/class-brevo-admin-ui.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoAdminUI"
+  },
+  {
+    "file": "brevo/class-brevo-webhook.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Brevo",
+    "class": "BrevoWebhook"
+  },
+  {
+    "file": "ai-understanding/class-response-renderer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\AIUnderstanding",
+    "class": "ResponseRenderer"
+  },
+  {
+    "file": "ai-understanding/class-claude-api-client.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\AIUnderstanding",
+    "class": "ClaudeApiClient"
+  },
+  {
+    "file": "ai-understanding/class-understanding-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\AIUnderstanding",
+    "class": "UnderstandingEngine"
+  },
+  {
+    "file": "ai-understanding/class-ai-rest-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\AIUnderstanding",
+    "class": "AiRestApi"
+  },
+  {
+    "file": "core/class-price-presenter.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "PricePresenter"
+  },
+  {
+    "file": "core/class-doni-language-policy.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "DoniLanguagePolicy"
+  },
+  {
+    "file": "core/class-intent-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "IntentEngine"
+  },
+  {
+    "file": "core/class-session-manager.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "SessionManager"
+  },
+  {
+    "file": "core/class-payment-matrix.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "PaymentMatrix"
+  },
+  {
+    "file": "core/class-diagnostics-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "DiagnosticsEngine"
+  },
+  {
+    "file": "core/class-payment-context-resolver.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "PaymentContextResolver"
+  },
+  {
+    "file": "core/class-safe-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "SafeHandler"
+  },
+  {
+    "file": "core/class-abandonment-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "AbandonmentService"
+  },
+  {
+    "file": "core/class-flow-navigator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "FlowNavigator"
+  },
+  {
+    "file": "core/class-navigation-helper.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "NavigationHelper"
+  },
+  {
+    "file": "core/class-language-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "LanguageEngine"
+  },
+  {
+    "file": "core/class-language-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "which"
+  },
+  {
+    "file": "core/class-recovery-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "RecoveryEngine"
+  },
+  {
+    "file": "core/class-customer-currency-policy.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "CustomerCurrencyPolicy"
+  },
+  {
+    "file": "core/class-anti-silence-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "AntiSilenceEngine"
+  },
+  {
+    "file": "core/class-segment-registry.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "SegmentRegistry"
+  },
+  {
+    "file": "core/class-doni-i18n.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "DoniI18n"
+  },
+  {
+    "file": "core/class-doni-i18n.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "would"
+  },
+  {
+    "file": "core/class-doni-i18n.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "imong"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "Router"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "loads"
+  },
+  {
+    "file": "core/class-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "loads"
+  },
+  {
+    "file": "core/class-payment-provider-policy.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "PaymentProviderPolicy"
+  },
+  {
+    "file": "core/class-whatsapp-sender.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "WhatsAppSender"
+  },
+  {
+    "file": "core/class-customer-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "CustomerEngine"
+  },
+  {
+    "file": "core/class-currency-manager.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Core",
+    "class": "CurrencyManager"
+  },
+  {
+    "file": "eticket-center/class-eticket-language-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketLanguageService"
+  },
+  {
+    "file": "eticket-center/class-flight-notification-scheduler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "FlightNotificationScheduler"
+  },
+  {
+    "file": "eticket-center/class-eticket-verification.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketVerification"
+  },
+  {
+    "file": "eticket-center/class-eticket-data-normalizer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketDataNormalizer"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-trigger.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketAutoTrigger"
+  },
+  {
+    "file": "eticket-center/class-eticket-renderer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketRenderer"
+  },
+  {
+    "file": "eticket-center/class-eticket-test-mode.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketTestMode"
+  },
+  {
+    "file": "eticket-center/class-checkin-notifier.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "CheckinNotifier"
+  },
+  {
+    "file": "eticket-center/class-checkin-notifier.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "BaggageNotifier"
+  },
+  {
+    "file": "eticket-center/class-eticket-delivery-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketDeliveryService"
+  },
+  {
+    "file": "eticket-center/class-eticket-generator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketGenerator"
+  },
+  {
+    "file": "eticket-center/class-eticket-pdf-renderer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketPdfRenderer"
+  },
+  {
+    "file": "eticket-center/class-eticket-admin.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketAdmin"
+  },
+  {
+    "file": "eticket-center/class-eticket-branding.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketBranding"
+  },
+  {
+    "file": "eticket-center/class-flight-tracking-service.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "FlightTrackingService"
+  },
+  {
+    "file": "eticket-center/class-eticket-auto-delivery.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketAutoDelivery"
+  },
+  {
+    "file": "eticket-center/class-eticket-template-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketTemplateEngine"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "EticketAPI"
+  },
+  {
+    "file": "eticket-center/class-eticket-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\EticketCenter",
+    "class": "available"
+  },
+  {
+    "file": "segments/class-segment-manual-passenger.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentManualPassenger"
+  },
+  {
+    "file": "segments/class-segment-ph-language.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPhLanguage"
+  },
+  {
+    "file": "segments/class-segment-departure-date.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentDepartureDate"
+  },
+  {
+    "file": "segments/class-segment-technical-recovery.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentTechnicalRecovery"
+  },
+  {
+    "file": "segments/class-segment-origin-airport.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentOriginAirport"
+  },
+  {
+    "file": "segments/class-segment-agent-escalation.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentAgentEscalation"
+  },
+  {
+    "file": "segments/class-segment-return-date.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentReturnDate"
+  },
+  {
+    "file": "segments/class-segment-compliance.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentCompliance"
+  },
+  {
+    "file": "segments/class-segment-ticketing.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentTicketing"
+  },
+  {
+    "file": "segments/class-segment-ocr-upload.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentOcrUpload"
+  },
+  {
+    "file": "segments/class-segment-language.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentLanguage"
+  },
+  {
+    "file": "segments/class-segment-base.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "for"
+  },
+  {
+    "file": "segments/class-segment-base.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentBase"
+  },
+  {
+    "file": "segments/class-segment-destination-airport.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentDestinationAirport"
+  },
+  {
+    "file": "segments/class-segment-trip-type.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentTripType"
+  },
+  {
+    "file": "segments/class-segment-feedback.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentFeedback"
+  },
+  {
+    "file": "segments/class-segment-flight-intent.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentFlightIntent"
+  },
+  {
+    "file": "segments/class-segment-stops.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentStops"
+  },
+  {
+    "file": "segments/class-segment-customer-identification.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentCustomerIdentification"
+  },
+  {
+    "file": "segments/class-segment-auto-payment.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentAutoPayment"
+  },
+  {
+    "file": "segments/class-segment-saved-passengers.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentSavedPassengers"
+  },
+  {
+    "file": "segments/class-segment-search.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentSearch"
+  },
+  {
+    "file": "segments/class-segment-airline.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentAirline"
+  },
+  {
+    "file": "segments/class-segment-selection.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentSelection"
+  },
+  {
+    "file": "segments/class-segment-payment-selection.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPaymentSelection"
+  },
+  {
+    "file": "segments/class-segment-priority-offer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPriorityOffer"
+  },
+  {
+    "file": "segments/class-segment-results.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentResults"
+  },
+  {
+    "file": "segments/class-segment-new-passenger.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentNewPassenger"
+  },
+  {
+    "file": "segments/class-segment-repricing.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentRepricing"
+  },
+  {
+    "file": "segments/class-segment-ancillaries.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentAncillaries"
+  },
+  {
+    "file": "segments/class-segment-passengers.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPassengers"
+  },
+  {
+    "file": "segments/class-segment-destination.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentDestination"
+  },
+  {
+    "file": "segments/class-segment-service-selection.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentServiceSelection"
+  },
+  {
+    "file": "segments/class-segment-post-booking.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPostBooking"
+  },
+  {
+    "file": "segments/class-segment-origin.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentOrigin"
+  },
+  {
+    "file": "segments/class-segment-ocr-confirmation.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentOcrConfirmation"
+  },
+  {
+    "file": "segments/class-segment-recap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentRecap"
+  },
+  {
+    "file": "segments/class-segment-cabin.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentCabin"
+  },
+  {
+    "file": "segments/class-segment-comparison.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentComparison"
+  },
+  {
+    "file": "segments/class-segment-delivery.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentDelivery"
+  },
+  {
+    "file": "segments/class-segment-manual-payment.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentManualPayment"
+  },
+  {
+    "file": "segments/class-segment-language-choice.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentLanguageChoice"
+  },
+  {
+    "file": "segments/class-segment-payment-confirmation.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Segments",
+    "class": "SegmentPaymentConfirmation"
+  },
+  {
+    "file": "includes/class-pdf-lib-loader.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Includes",
+    "class": "PdfLibLoader"
+  },
+  {
+    "file": "includes/class-credential-guard.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Includes",
+    "class": "CredentialGuard"
+  },
+  {
+    "file": "includes/class-config.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "Config"
+  },
+  {
+    "file": "includes/class-feature-flags.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "FeatureFlags"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "Plugin"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "exists"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "did"
+  },
+  {
+    "file": "includes/class-plugin.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "not"
+  },
+  {
+    "file": "includes/class-api-keys-migration.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "ApiKeysMigration"
+  },
+  {
+    "file": "includes/class-installer.php",
+    "namespace": "JCAP\\DONI\\FlightV2",
+    "class": "Installer"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTracker"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-actions.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTrackerActions"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-admin.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTrackerAdmin"
+  },
+  {
+    "file": "flow-tracker/class-flow-segments.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowSegments"
+  },
+  {
+    "file": "flow-tracker/class-flow-segments.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "not"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-renderer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTrackerRenderer"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTrackerAPI"
+  },
+  {
+    "file": "flow-tracker/class-flow-tracker-ai.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlowTracker",
+    "class": "FlowTrackerAI"
+  },
+  {
+    "file": "payments/class-webhook-security.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "WebhookSecurity"
+  },
+  {
+    "file": "payments/class-post-booking-request.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PostBookingRequest"
+  },
+  {
+    "file": "payments/class-doni-payment-guard.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "decides"
+  },
+  {
+    "file": "payments/class-doni-payment-guard.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "DoniPaymentGuard"
+  },
+  {
+    "file": "payments/class-mercado-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "MercadoHandler"
+  },
+  {
+    "file": "payments/class-payment-expiry.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PaymentExpiry"
+  },
+  {
+    "file": "payments/class-bazik-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "BazikHandler"
+  },
+  {
+    "file": "payments/class-paypal-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PayPalHandler"
+  },
+  {
+    "file": "payments/class-refund-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "RefundHandler"
+  },
+  {
+    "file": "payments/class-payment-provider-probe.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PaymentProviderProbe"
+  },
+  {
+    "file": "payments/class-mercado-instructions.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "MercadoInstructions"
+  },
+  {
+    "file": "payments/class-manual-payment-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "ManualPaymentHandler"
+  },
+  {
+    "file": "payments/class-payment-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PaymentRouter"
+  },
+  {
+    "file": "payments/class-payment-status.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PaymentStatus"
+  },
+  {
+    "file": "payments/class-hold-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "HoldEngine"
+  },
+  {
+    "file": "payments/class-payment-schema-repair.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "actually"
+  },
+  {
+    "file": "payments/class-payment-schema-repair.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "PaymentSchemaRepair"
+  },
+  {
+    "file": "payments/class-stripe-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Payments",
+    "class": "StripeHandler"
+  },
+  {
+    "file": "portal/class-doni-portal-router.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "DoniPortalRouter"
+  },
+  {
+    "file": "portal/class-doni-portal-ui.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "DoniPortalUI"
+  },
+  {
+    "file": "portal/class-country-access-manager.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "CountryAccessManager"
+  },
+  {
+    "file": "portal/class-doni-portal-roles.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "DoniPortalRoles"
+  },
+  {
+    "file": "portal/class-doni-portal-auth.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "DoniPortalAuth"
+  },
+  {
+    "file": "portal/class-notifications-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "NotificationsEngine"
+  },
+  {
+    "file": "portal/class-doni-portal-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "DoniPortalAPI"
+  },
+  {
+    "file": "portal/class-audit-log.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "AuditLog"
+  },
+  {
+    "file": "portal/class-notifications-auto-triggers.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "NotificationsAutoTriggers"
+  },
+  {
+    "file": "portal/class-invite-manager.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\Portal",
+    "class": "InviteManager"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-intent-matcher.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightStatusIntentMatcher"
+  },
+  {
+    "file": "flight-alerts/class-airline-rules.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AirlineRules"
+  },
+  {
+    "file": "flight-alerts/class-admin-diagnostic-page.php",
+    "namespace": "detected, class loaded\n *   - OPcache state per file (cached version vs current disk version)\n *   - PHP version, WP version, memory\n *   - Button to purge OPcache manually\n *   - Button to clear safe-mode error log\n *\n * @package JCAP\\DONI\\FlightV2\\FlightAlerts\n */\n\nnamespace JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "loaded"
+  },
+  {
+    "file": "flight-alerts/class-admin-diagnostic-page.php",
+    "namespace": "detected, class loaded\n *   - OPcache state per file (cached version vs current disk version)\n *   - PHP version, WP version, memory\n *   - Button to purge OPcache manually\n *   - Button to clear safe-mode error log\n *\n * @package JCAP\\DONI\\FlightV2\\FlightAlerts\n */\n\nnamespace JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminDiagnosticPage"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-scheduler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsScheduler"
+  },
+  {
+    "file": "flight-alerts/class-flight-alert-templates.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertTemplates"
+  },
+  {
+    "file": "flight-alerts/class-admin-flight-tracking-settings.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminFlightTrackingSettings"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-resolver.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightStatusResolver"
+  },
+  {
+    "file": "flight-alerts/class-admin-direct-api-tester.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminDirectApiTester"
+  },
+  {
+    "file": "flight-alerts/class-admin-flight-status-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminFlightStatusPage"
+  },
+  {
+    "file": "flight-alerts/class-doni-flightaware-client.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "DoniFlightawareClient"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-rest.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightStatusRest"
+  },
+  {
+    "file": "flight-alerts/class-admin-provider-diagnostic.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminProviderDiagnostic"
+  },
+  {
+    "file": "flight-alerts/class-admin-provider-diagnostic.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "not"
+  },
+  {
+    "file": "flight-alerts/class-admin-provider-diagnostic.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "not"
+  },
+  {
+    "file": "flight-alerts/class-admin-webhook-log.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminWebhookLog"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-rest.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsRest"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-replier.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightStatusReplier"
+  },
+  {
+    "file": "flight-alerts/class-admin-api-dashboard.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminApiDashboard"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-migrations.php",
+    "namespace": "(kept separate from the\n * existing jcap_flight_tracking which is the legacy stub):\n *\n *   - doni_flight_tracking          : one row per booked flight segment\n *   - doni_flight_alerts            : one row per scheduled/sent alert\n *   - doni_flight_alert_logs        : delivery log per channel attempt\n *   - doni_flight_status_snapshots  : history of API responses (audit)\n *\n * Plus optional config table:\n *   - doni_airline_rules            : per-airline check-in URLs + windows\n *\n * @package JCAP\\DONI\\FlightV2\\FlightAlerts\n */\n\nnamespace JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsMigrations"
+  },
+  {
+    "file": "flight-alerts/class-flight-status-inbound-handler.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightStatusInboundHandler"
+  },
+  {
+    "file": "flight-alerts/class-admin-flight-alerts-page.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminFlightAlertsPage"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-migrations-1-1-0.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsMigrations110"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "is"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "name"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "is"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsBootstrap"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "exists"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-bootstrap.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "actually"
+  },
+  {
+    "file": "flight-alerts/class-flight-alert-sender.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertSender"
+  },
+  {
+    "file": "flight-alerts/class-flight-alert-sender.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "not"
+  },
+  {
+    "file": "flight-alerts/class-flight-alert-sender.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "not"
+  },
+  {
+    "file": "flight-alerts/class-admin-fsm-diagnostic.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "AdminFsmDiagnostic"
+  },
+  {
+    "file": "flight-alerts/class-flight-alerts-orchestrator.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FlightAlerts",
+    "class": "FlightAlertsOrchestrator"
+  },
+  {
+    "file": "finance-center/class-finance-sync-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceSyncEngine"
+  },
+  {
+    "file": "finance-center/class-finance-action-requests.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceActionRequests"
+  },
+  {
+    "file": "finance-center/class-finance-ai-advisor.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceAIAdvisor"
+  },
+  {
+    "file": "finance-center/class-finance-renderer.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceRenderer"
+  },
+  {
+    "file": "finance-center/class-finance-admin.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceAdmin"
+  },
+  {
+    "file": "finance-center/class-finance-api.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceAPI"
+  },
+  {
+    "file": "finance-center/class-finance-engine.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceEngine"
+  },
+  {
+    "file": "finance-center/class-finance-booking-sync.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceBookingSync"
+  },
+  {
+    "file": "finance-center/class-finance-transactions.php",
+    "namespace": "JCAP\\DONI\\FlightV2\\FinanceCenter",
+    "class": "FinanceTransactions"
+  }
+]

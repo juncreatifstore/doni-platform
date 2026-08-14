@@ -1,0 +1,3 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+export async function GET(req:Request){const secret=process.env.CRON_SECRET;if(!secret||req.headers.get('authorization')!==`Bearer ${secret}`)return NextResponse.json({success:false,error:'unauthorized'},{status:401});const now=new Date();const attemptsBefore=new Date(Date.now()-24*60*60*1000);const [sessions,attempts]=await Promise.all([db.portalSession.deleteMany({where:{expiresAt:{lt:now}}}),db.authAttempt.deleteMany({where:{createdAt:{lt:attemptsBefore}}})]);return NextResponse.json({success:true,deletedSessions:sessions.count,deletedAuthAttempts:attempts.count});}

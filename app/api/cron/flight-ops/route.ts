@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {runFlightOps} from '@/services/flight-ops/alerts';
+export async function GET(req:NextRequest){const secret=process.env.CRON_SECRET;if(!secret||req.headers.get('authorization')!==`Bearer ${secret}`)return NextResponse.json({success:false,error:'unauthorized'},{status:401});try{return NextResponse.json({success:true,...await runFlightOps()});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'flight_ops_failed'},{status:500});}}

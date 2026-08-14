@@ -1,0 +1,2 @@
+import {DoniShell} from '@/components/DoniShell';import {CheckinCenter} from '@/components/operations/CheckinCenter';import {requirePageUser} from '@/lib/auth/session';import {listCheckins} from '@/services/operations/checkin';
+export default async function Page(){const user=await requirePageUser('AGENT');const raw:any[]=await listCheckins();const rows=raw.map(r=>({...r,price:r.price==null?null:String(r.price)}));return <DoniShell title="Check-in Center" active="/checkin" user={user}><CheckinCenter rows={rows}/></DoniShell>}

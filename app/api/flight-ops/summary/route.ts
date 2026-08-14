@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {requireApiUser} from '@/lib/auth/session';import {flightOpsSummary} from '@/services/flight-ops/service';
+export async function GET(){const a=await requireApiUser('AGENT');if(!a.ok)return NextResponse.json({success:false,error:a.error},{status:a.status});try{return NextResponse.json({success:true,...await flightOpsSummary()});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'flight_ops_failed'},{status:500});}}

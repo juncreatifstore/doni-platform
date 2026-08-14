@@ -1,0 +1,4 @@
+import { DoniShell } from '@/components/DoniShell';
+import { requirePageUser } from '@/lib/auth/session';
+import { db } from '@/lib/db';
+export default async function Page(){const user=await requirePageUser('ADMIN');const logs=await db.auditLog.findMany({include:{user:{select:{username:true,fullName:true}}},orderBy:{createdAt:'desc'},take:200});return <DoniShell title="Audit Log" active="/audit" user={user}><div className="card"><h2>Dernières actions</h2><div className="tableWrap"><table className="table"><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Entité</th><th>ID</th></tr></thead><tbody>{logs.map(l=><tr key={l.id}><td>{l.createdAt.toLocaleString('fr-FR')}</td><td>{l.user?.fullName||l.user?.username||'Système'}</td><td>{l.action}</td><td>{l.entity||'—'}</td><td>{l.entityId||'—'}</td></tr>)}</tbody></table></div></div></DoniShell>}

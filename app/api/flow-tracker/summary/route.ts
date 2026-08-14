@@ -1,0 +1,2 @@
+import { NextResponse } from 'next/server';import { requireApiUser } from '@/lib/auth/session';import { getFlowMetrics } from '@/services/analytics/dashboard';
+export async function GET(){const a=await requireApiUser('AGENT');if(!a.ok)return NextResponse.json({success:false,error:a.error},{status:a.status});try{return NextResponse.json({success:true,data:await getFlowMetrics()})}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'flow_failed'},{status:500})}}

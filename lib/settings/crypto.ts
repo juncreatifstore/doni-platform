@@ -1,0 +1,4 @@
+import crypto from 'crypto';
+function key(){const raw=process.env.SETTINGS_ENCRYPTION_KEY;if(!raw)throw new Error('SETTINGS_ENCRYPTION_KEY_missing');return crypto.createHash('sha256').update(raw).digest();}
+export function encryptSecret(value:string){const iv=crypto.randomBytes(12);const c=crypto.createCipheriv('aes-256-gcm',key(),iv);const enc=Buffer.concat([c.update(value,'utf8'),c.final()]);const tag=c.getAuthTag();return `v1.${iv.toString('base64url')}.${tag.toString('base64url')}.${enc.toString('base64url')}`;}
+export function decryptSecret(value:string){const [v,ivs,tags,data]=value.split('.');if(v!=='v1'||!ivs||!tags||!data)throw new Error('invalid_encrypted_setting');const d=crypto.createDecipheriv('aes-256-gcm',key(),Buffer.from(ivs,'base64url'));d.setAuthTag(Buffer.from(tags,'base64url'));return Buffer.concat([d.update(Buffer.from(data,'base64url')),d.final()]).toString('utf8');}

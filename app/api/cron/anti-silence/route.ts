@@ -1,0 +1,2 @@
+import {NextRequest,NextResponse} from 'next/server';import {scanSilentSessions,markAbandoned} from '@/services/recovery/service';
+export async function GET(req:NextRequest){const auth=req.headers.get('authorization');const secret=process.env.CRON_SECRET;if(!secret||auth!==`Bearer ${secret}`)return NextResponse.json({ok:false},{status:401});const recovery=await scanSilentSessions();const abandoned=await markAbandoned();return NextResponse.json({ok:true,recovery,abandoned:abandoned.count});}

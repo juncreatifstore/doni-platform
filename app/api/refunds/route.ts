@@ -1,0 +1,3 @@
+import {NextRequest,NextResponse} from 'next/server';import {requireApiUser} from '@/lib/auth/session';import {createRefund,listRefunds} from '@/services/post-booking/refunds';
+export async function GET(){const a=await requireApiUser('ADMIN');if(!a.ok)return NextResponse.json({success:false,error:a.error},{status:a.status});return NextResponse.json({success:true,rows:await listRefunds()});}
+export async function POST(req:NextRequest){const a=await requireApiUser('ADMIN');if(!a.ok)return NextResponse.json({success:false,error:a.error},{status:a.status});try{return NextResponse.json({success:true,row:await createRefund(await req.json(),a.user)});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'create_failed'},{status:400});}}

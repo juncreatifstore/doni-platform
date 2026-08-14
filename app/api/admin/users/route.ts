@@ -1,0 +1,10 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { requireApiUser } from '@/lib/auth/session';
+import { canManageAdmins } from '@/lib/auth/permissions';
+import { hashPassword } from '@/lib/auth/password';
+import { audit } from '@/lib/audit';
+import type { UserRole } from '@prisma/client';
+const roles:UserRole[]=['AGENT','ADMIN','SUPER_ADMIN'];
+export async function GET(){const auth=await requireApiUser('ADMIN');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});const users=await db.portalUser.findMany({select:{id:true,username:true,fullName:true,email:true,role:true,country:true,active:true,lastLoginAt:true,createdAt:true},orderBy:{createdAt:'asc'}});return NextResponse.json({success:true,users});}
+export async function POST(req:Request){const auth=await requireApiUser('ADMIN');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});try{const b=await req.json();const role=String(b.role||'AGENT') as UserRole;if(!roles.includes(role))return NextResponse.json({success:false,error:'invalid_role'},{status:400});if((role==='ADMIN'||role==='SUPER_ADMIN')&&!canManageAdmins(auth.user.role))return NextResponse.json({success:false,error:'forbidden_role'},{status:403});const username=String(b.username||'').trim().toLowerCase();if(!/^[a-z0-9._-]{3,40}$/.test(username))return NextResponse.json({success:false,error:'invalid_username'},{status:400});const user=await db.portalUser.create({data:{username,passwordHash:hashPassword(String(b.password||'')),fullName:b.fullName?String(b.fullName):null,email:b.email?String(b.email).trim().toLowerCase():null,role,country:b.country?String(b.country):null}});await audit({userId:auth.user.id,action:'USER_CREATE',entity:'PortalUser',entityId:user.id,metadata:{username,role}});return NextResponse.json({success:true,id:user.id});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'create_failed'},{status:400});}}

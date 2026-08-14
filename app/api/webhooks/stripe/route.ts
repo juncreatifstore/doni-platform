@@ -1,0 +1,1 @@
+import {processStripe} from '../../../../services/payments/webhooks';export async function POST(req:Request){const raw=await req.text();const r=await processStripe(raw,req.headers.get('stripe-signature'));return Response.json(r,{status:r.status});}

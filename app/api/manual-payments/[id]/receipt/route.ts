@@ -1,0 +1,3 @@
+import {NextRequest} from 'next/server';import {requireApiUser} from '@/lib/auth/session';import {receiptBytes} from '@/services/payments/manual-review';
+export const runtime='nodejs';
+export async function GET(_req:NextRequest,{params}:{params:Promise<{id:string}>}){const a=await requireApiUser('AGENT');if(!a.ok)return Response.json({success:false,error:a.error},{status:a.status});try{const {id}=await params;const r=await receiptBytes(id);return new Response(r.bytes,{status:200,headers:{'content-type':r.mime,'cache-control':'private, no-store','x-content-type-options':'nosniff'}});}catch(e){return Response.json({success:false,error:e instanceof Error?e.message:'receipt_failed'},{status:404});}}
