@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/payment-expiry",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/flight-ops",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/session-cleanup",
+      "schedule": "17 * * * *"
+    },
+    {
+      "path": "/api/cron/anti-silence",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
