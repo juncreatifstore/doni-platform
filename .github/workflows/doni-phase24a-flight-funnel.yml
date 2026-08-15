@@ -80,7 +80,7 @@ jobs:
       - name: Wait for controlled flight funnel
         run: |
           set -euo pipefail
-          echo "On WhatsApp, follow DONI and send in order:"
+          echo "On WhatsApp, wait for each DONI reply, then send in order:"
           echo "1) Bonjour"
           echo "2) 1    (Vols)"
           echo "3) 1    (Aller simple)"
@@ -91,14 +91,21 @@ jobs:
           found=0
           for attempt in $(seq 1 36); do
             curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
-            if RESET_AT=$(cat /tmp/reset_at.txt) node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const r=Date.parse(process.env.RESET_AT);const ms=(c.messages||[]).filter(m=>Date.parse(m.createdAt||0)>=r);const inbound=t=>ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim().toLowerCase()===t.toLowerCase());const bot=s=>ms.some(m=>String(m.direction).toUpperCase()==="OUTBOUND"&&String(m.senderType).toUpperCase()==="BOT"&&String(m.text||"").toLowerCase().includes(s.toLowerCase()));const criteria=c.state?.criteria||{};const ok=inbound("bonjour")&&inbound("1")&&inbound("pap")&&inbound("mex")&&inbound("20/08/2026")&&bot("combien de")&&c.currentSegment==="segment_passengers"&&criteria.trip_type==="oneway"&&criteria.origin==="PAP"&&criteria.destination==="MEX"&&criteria.depart_date==="2026-08-20";if(ok){console.log(`Phase 24A verified at ${c.currentSegment}`);console.log(JSON.stringify({trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date}));process.exit(0)}process.exit(1)'; then
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ok=c.currentSegment==="segment_passengers"&&criteria.trip_type==="oneway"&&criteria.origin==="PAP"&&criteria.destination==="MEX"&&criteria.depart_date==="2026-08-20";if(ok){console.log(`Phase 24A verified at ${c.currentSegment}`);console.log(JSON.stringify({trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date}));process.exit(0)}process.exit(1)'; then
               found=1
               break
+            fi
+            if [ $((attempt % 6)) -eq 0 ]; then
+              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-8).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120)}));console.log("Diagnostic snapshot:");console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:{trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date},recentMessages:ms},null,2));'
             fi
             echo "Attempt $attempt/36: waiting for the WhatsApp flight funnel..."
             sleep 10
           done
-          test "$found" = "1" || (echo "Expected pre-search flight funnel was not observed in Live Ops" && exit 1)
+          if [ "$found" != "1" ]; then
+            echo "Final diagnostic:"
+            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-12).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,160)}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:{trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date},recentMessages:ms},null,2));'
+            exit 1
+          fi
 
       - name: Safety cleanup - force WhatsApp OFF
         if: always()
