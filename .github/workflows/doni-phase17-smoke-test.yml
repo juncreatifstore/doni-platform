@@ -1,0 +1,95 @@
+name: DONI Phase 17 Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "DONI production base URL"
+        required: false
+        default: "https://doni-platform.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Production smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://doni-platform.vercel.app' }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate credentials secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${DONI_ADMIN_USERNAME:-}" ] || [ -z "${DONI_ADMIN_PASSWORD:-}" ]; then
+            echo "Missing DONI_ADMIN_USERNAME or DONI_ADMIN_PASSWORD GitHub Actions secret."
+            exit 1
+          fi
+
+      - name: Check public login page
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -L -o /tmp/login.html -w '%{http_code}' "$BASE_URL/login")
+          echo "/login -> HTTP $code"
+          test "$code" = "200"
+
+      - name: Authenticate SUPER_ADMIN
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$BASE_URL/api/auth/login")
+          echo "/api/auth/login -> HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "Authentication smoke test failed. Response body:"
+            cat /tmp/login.json
+            exit 1
+          fi
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success)process.exit(1);console.log(`Authenticated role: ${x.role||"unknown"}`)'
+
+      - name: Check authenticated portal pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          routes=(
+            /overview
+            /live-ops
+            /customers
+            /ticketing
+            /manual-payments
+            /post-booking
+            /flight-ops
+            /checkin
+            /baggage
+            /inventory
+            /flow-tracker
+            /finance
+            /users
+            /settings
+            /audit
+            /migration
+          )
+          failed=0
+          for route in "${routes[@]}"; do
+            code=$(curl -sS -L -b /tmp/doni-cookies.txt -o /tmp/page.html -w '%{http_code}' "$BASE_URL$route")
+            printf '%-24s HTTP %s\n' "$route" "$code"
+            if [ "$code" != "200" ]; then
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "One or more DONI portal routes failed the smoke test."
+            exit 1
+          fi
+
+      - name: Phase 17 smoke test complete
+        run: echo "DONI production smoke test passed successfully."
