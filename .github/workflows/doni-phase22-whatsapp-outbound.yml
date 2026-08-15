@@ -1,0 +1,113 @@
+name: DONI Phase 22 WhatsApp Outbound
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      inbound_marker:
+        description: Inbound message used to identify the test conversation
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  outbound-validation:
+    name: Controlled real WhatsApp outbound validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      INBOUND_MARKER: ${{ inputs.inbound_marker }}
+      OUTBOUND_TEXT: DONI Phase 22 - test d'envoi reel confirme.
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Confirm WhatsApp credentials are configured
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/settings.json -w '%{http_code}' "$BASE_URL/api/settings")
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));for(const k of ["whatsapp.access_token","whatsapp.phone_number_id","whatsapp.verify_token"]){if(!m.get(k)?.configured){console.error(k+" missing");process.exit(1)}}console.log("WhatsApp credentials configured")'
+
+      - name: Find Phase 21 conversation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=100" -o /tmp/conversations.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/conversations.json","utf8"));for(const c of (x.conversations||[]))if(c.id)console.log(c.id)' > /tmp/ids.txt
+          found=""
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const msgs=x.conversation?.messages||[];const ok=msgs.some(m=>String(m.direction||"").toUpperCase()==="INBOUND"&&String(m.text||"").trim()===process.env.INBOUND_MARKER.trim());process.exit(ok?0:1)'; then
+              found="$id"
+              break
+            fi
+          done < /tmp/ids.txt
+          test -n "$found" || (echo "Phase 21 conversation not found" && exit 1)
+          echo "CONVERSATION_ID=$found" >> "$GITHUB_ENV"
+          echo "Test conversation located."
+
+      - name: Temporarily enable WhatsApp sending
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/enable.json -w '%{http_code}' -X PUT -H 'content-type: application/json' --data '{"key":"whatsapp.enabled","value":true}' "$BASE_URL/api/settings")
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/enable.json","utf8"));if(!x.success)process.exit(1)'
+          echo "WhatsApp sending temporarily enabled."
+
+      - name: Take over test conversation
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/takeover.json -w '%{http_code}' -X POST "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID/takeover")
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/takeover.json","utf8"));if(!x.success)process.exit(1)'
+
+      - name: Send exactly one real WhatsApp test message
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({text:process.env.OUTBOUND_TEXT}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/send.json -w '%{http_code}' -X POST -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID/messages")
+          echo "Send HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/send.json","utf8"));if(!x.success||x.delivery?.sent!==true||x.delivery?.dryRun===true){console.error("Real WhatsApp delivery was not confirmed");process.exit(1)}const pid=x.delivery?.response?.messages?.[0]?.id;if(!pid){console.error("Meta message id missing");process.exit(1)}console.log("Meta accepted one real WhatsApp message; message id present: YES")'
+
+      - name: Verify outbound message is recorded in Live Ops
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/final-detail.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/final-detail.json","utf8"));const msgs=x.conversation?.messages||[];const m=[...msgs].reverse().find(v=>String(v.direction||"").toUpperCase()==="OUTBOUND"&&String(v.text||"")===process.env.OUTBOUND_TEXT);if(!m){console.error("Outbound test message missing from Live Ops");process.exit(1)}if(!m.providerMessageId){console.error("Provider message id missing in Live Ops");process.exit(1)}console.log("Outbound message recorded in Live Ops with provider id.")'
+
+      - name: Safety cleanup - disable WhatsApp and release conversation
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data '{"key":"whatsapp.enabled","value":false}' "$BASE_URL/api/settings" >/tmp/disable.json
+            echo "WhatsApp sending returned to OFF."
+            if [ -n "${CONVERSATION_ID:-}" ]; then
+              curl -sS -b /tmp/doni-cookies.txt -X POST "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID/release" >/tmp/release.json
+              echo "Test conversation released."
+            fi
+          fi
+
+      - name: Phase 22 complete
+        run: |
+          echo "Phase 22 passed: exactly one controlled real WhatsApp outbound message was accepted by Meta, recorded in Live Ops, and WhatsApp sending was returned to OFF."
