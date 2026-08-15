@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      RAW_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RAW_DIRECT_URL: ${{ secrets.DIRECT_URL }}
       DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
       DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
       DONI_ADMIN_EMAIL: ${{ secrets.DONI_ADMIN_EMAIL }}
@@ -27,11 +27,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Validate required secrets
+      - name: Validate and normalize secrets
         shell: bash
         run: |
           set -euo pipefail
-          for name in DATABASE_URL DIRECT_URL DONI_ADMIN_USERNAME DONI_ADMIN_PASSWORD DONI_ADMIN_EMAIL; do
+          for name in RAW_DATABASE_URL RAW_DIRECT_URL DONI_ADMIN_USERNAME DONI_ADMIN_PASSWORD DONI_ADMIN_EMAIL; do
             if [ -z "${!name:-}" ]; then
               echo "Missing required GitHub Actions secret: $name"
               exit 1
@@ -41,6 +41,37 @@ jobs:
             echo "DONI_ADMIN_PASSWORD must contain at least 10 characters."
             exit 1
           fi
+
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function normalize(raw, expectedName) {
+            let value = String(raw ?? '').trim();
+            value = value.replace(/^```(?:env)?\s*/i, '').replace(/```$/i, '').trim();
+            const assignment = new RegExp(`^${expectedName}\\s*=\\s*`, 'i');
+            value = value.replace(assignment, '').trim();
+            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+              value = value.slice(1, -1).trim();
+            }
+            value = value.replace(/[\r\n]/g, '').trim();
+
+            let parsed;
+            try { parsed = new URL(value); }
+            catch { throw new Error(`${expectedName}: invalid URL format`); }
+
+            if (!['postgresql:', 'postgres:'].includes(parsed.protocol)) {
+              throw new Error(`${expectedName}: invalid scheme (${parsed.protocol || 'missing'}), expected postgresql://`);
+            }
+            if (!parsed.hostname) throw new Error(`${expectedName}: database hostname is missing`);
+            return value;
+          }
+
+          const databaseUrl = normalize(process.env.RAW_DATABASE_URL, 'DATABASE_URL');
+          const directUrl = normalize(process.env.RAW_DIRECT_URL, 'DIRECT_URL');
+          fs.appendFileSync(process.env.GITHUB_ENV, `DATABASE_URL=${databaseUrl}\nDIRECT_URL=${directUrl}\n`);
+          console.log('DATABASE_URL format: OK (PostgreSQL)');
+          console.log('DIRECT_URL format: OK (PostgreSQL)');
+          NODE
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -82,20 +113,8 @@ jobs:
 
             const user = await prisma.portalUser.upsert({
               where: { username },
-              update: {
-                email,
-                passwordHash,
-                role: 'SUPER_ADMIN',
-                active: true,
-              },
-              create: {
-                username,
-                email,
-                passwordHash,
-                role: 'SUPER_ADMIN',
-                active: true,
-                fullName: 'DONI Super Admin',
-              },
+              update: { email, passwordHash, role: 'SUPER_ADMIN', active: true },
+              create: { username, email, passwordHash, role: 'SUPER_ADMIN', active: true, fullName: 'DONI Super Admin' },
               select: { id: true, username: true, email: true, role: true, active: true },
             });
 
@@ -107,9 +126,7 @@ jobs:
               console.error(error instanceof Error ? error.message : error);
               process.exitCode = 1;
             })
-            .finally(async () => {
-              await prisma.$disconnect();
-            });
+            .finally(async () => { await prisma.$disconnect(); });
           NODE
 
       - name: Setup complete
