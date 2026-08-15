@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   setup:
-    name: Migrate Neon and create SUPER_ADMIN
+    name: Initialize Neon and create SUPER_ADMIN
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -50,7 +50,6 @@ jobs:
             value = value.replace(/^```(?:env|bash|sh)?\s*/i, '').replace(/```$/i, '').trim();
             value = value.replace(new RegExp(`^${expectedName}\\s*=\\s*`, 'i'), '').trim();
 
-            // Accept values copied as: psql 'postgresql://...', export DATABASE_URL=..., or text containing the URL.
             const startMatch = value.match(/postgres(?:ql)?:\/\//i);
             if (startMatch && startMatch.index !== undefined) {
               value = value.slice(startMatch.index);
@@ -60,17 +59,16 @@ jobs:
             value = value.replace(/["'`;\s]+$/g, '').trim();
             value = value.replace(/^["']+/g, '').trim();
 
-            // Safe diagnostics: never print credentials or host.
             console.log(`${expectedName}: received length ${String(raw ?? '').length}`);
             console.log(`${expectedName}: PostgreSQL prefix detected = ${/^postgres(?:ql)?:\/\//i.test(value) ? 'YES' : 'NO'}`);
 
             if (!/^postgres(?:ql)?:\/\//i.test(value)) {
-              throw new Error(`${expectedName}: no PostgreSQL connection URL detected. Copy the Neon connection string itself, not a masked value or variable reference.`);
+              throw new Error(`${expectedName}: no PostgreSQL connection URL detected.`);
             }
 
             let parsed;
             try { parsed = new URL(value); }
-            catch { throw new Error(`${expectedName}: PostgreSQL prefix found but URL is malformed. Copy a fresh connection string directly from Neon Connect.`); }
+            catch { throw new Error(`${expectedName}: PostgreSQL prefix found but URL is malformed.`); }
 
             if (!['postgresql:', 'postgres:'].includes(parsed.protocol)) {
               throw new Error(`${expectedName}: invalid scheme; expected postgresql://`);
@@ -93,8 +91,8 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply production migrations
-        run: npx prisma migrate deploy
+      - name: Synchronize current Prisma schema to Neon
+        run: npx prisma db push --accept-data-loss
 
       - name: Create or update SUPER_ADMIN
         shell: bash
@@ -144,4 +142,4 @@ jobs:
           NODE
 
       - name: Setup complete
-        run: echo "DONI database migrations applied and SUPER_ADMIN configured successfully."
+        run: echo "DONI Prisma schema synchronized and SUPER_ADMIN configured successfully."
