@@ -16,7 +16,7 @@ jobs:
   flight-funnel:
     name: Controlled flight funnel before search
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 4
     env:
       BASE_URL: ${{ inputs.base_url }}
       ANCHOR_TEXT: ${{ inputs.anchor_text }}
@@ -80,30 +80,30 @@ jobs:
       - name: Wait for controlled flight funnel
         run: |
           set -euo pipefail
-          echo "On WhatsApp, wait for each DONI reply, then send in order:"
-          echo "1) Bonjour"
-          echo "2) 1    (Vols)"
-          echo "3) 1    (Aller simple)"
-          echo "4) PAP  (Origine)"
-          echo "5) MEX  (Destination)"
-          echo "6) 20/08/2026  (Date)"
-          echo "STOP when DONI asks for passenger count. Do not send the passenger count in Phase 24A."
+          echo "Send on WhatsApp, one at a time and wait for DONI between messages: Bonjour -> 1 -> 1 -> PAP -> MEX -> 20/08/2026"
+          echo "STOP when DONI asks for passenger count."
           found=0
-          for attempt in $(seq 1 36); do
+          for attempt in $(seq 1 24); do
             curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
-            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ok=c.currentSegment==="segment_passengers"&&criteria.trip_type==="oneway"&&criteria.origin==="PAP"&&criteria.destination==="MEX"&&criteria.depart_date==="2026-08-20";if(ok){console.log(`Phase 24A verified at ${c.currentSegment}`);console.log(JSON.stringify({trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date}));process.exit(0)}process.exit(1)'; then
+
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ok=c.currentSegment==="segment_passengers"&&criteria.trip_type==="oneway"&&criteria.origin==="PAP"&&criteria.destination==="MEX"&&criteria.depart_date==="2026-08-20";process.exit(ok?0:1)'; then
+              echo "Phase 24A verified."
               found=1
               break
             fi
-            if [ $((attempt % 6)) -eq 0 ]; then
-              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-8).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120)}));console.log("Diagnostic snapshot:");console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:{trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date},recentMessages:ms},null,2));'
+
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const ms=x.conversation?.messages||[];const m=[...ms].reverse().find(m=>m.senderType==="SYSTEM"&&m.metadata?.event==="whatsapp_dispatch_failed");if(!m)process.exit(1);console.error("DONI dispatch failure detected:");console.error(JSON.stringify({text:m.text,errorCode:m.metadata?.errorCode,attempts:m.metadata?.attempts},null,2));process.exit(0)'; then
+              exit 2
             fi
-            echo "Attempt $attempt/36: waiting for the WhatsApp flight funnel..."
-            sleep 10
+
+            if [ $((attempt % 4)) -eq 0 ]; then
+              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-6).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,100),event:m.metadata?.event,errorCode:m.metadata?.errorCode}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria,recentMessages:ms},null,2));'
+            fi
+            sleep 5
           done
           if [ "$found" != "1" ]; then
-            echo "Final diagnostic:"
-            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-12).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,160)}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:{trip_type:criteria.trip_type,origin:criteria.origin,destination:criteria.destination,depart_date:criteria.depart_date},recentMessages:ms},null,2));'
+            echo "Phase 24A timeout before passenger segment."
+            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const ms=(c.messages||[]).slice(-10).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120),event:m.metadata?.event,errorCode:m.metadata?.errorCode,attempts:m.metadata?.attempts}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:c.state?.criteria||{},recentMessages:ms},null,2));'
             exit 1
           fi
 
