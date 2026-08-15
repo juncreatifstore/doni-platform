@@ -111,4 +111,5 @@ jobs:
 
       - name: Phase 23 complete
         if: success()
-        run: echo "Phase 23 passed: real inbound messages triggered the DONI language/menu flow and real bot replies without enabling booking or payment providers."
+        run: |
+          echo "Phase 23 passed: real inbound messages triggered the DONI language/menu flow and real bot replies without enabling booking or payment providers."
