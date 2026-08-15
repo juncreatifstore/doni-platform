@@ -1,0 +1,108 @@
+name: DONI Phase 20 WhatsApp Meta
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "DONI production base URL"
+        required: false
+        default: "https://doni-platform.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  whatsapp-meta:
+    name: WhatsApp Meta controlled validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://doni-platform.vercel.app' }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Verify WhatsApp credentials are configured and sending is still OFF
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/settings.json -w '%{http_code}' "$BASE_URL/api/settings")
+          test "$code" = "200"
+          node <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/tmp/settings.json','utf8'));
+          const map=new Map((x.settings||[]).map(s=>[s.key,s]));
+          const required=['whatsapp.access_token','whatsapp.phone_number_id','whatsapp.verify_token'];
+          let failed=false;
+          for(const key of required){
+            const s=map.get(key);
+            console.log(`${key}: ${s?.configured?'configured':'MISSING'} (${s?.source||'unknown'})`);
+            if(!s?.configured) failed=true;
+          }
+          const enabled=map.get('whatsapp.enabled');
+          console.log(`whatsapp.enabled: ${String(enabled?.value)} (${enabled?.source||'unknown'})`);
+          if(enabled?.value===true){
+            console.error('Safety gate failure: WhatsApp sending must remain OFF during Phase 20 validation.');
+            failed=true;
+          }
+          if(failed) process.exit(1);
+          NODE
+
+      - name: Validate Meta token and Phone Number ID without sending a message
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/meta.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data '{"integration":"whatsapp"}' \
+            "$BASE_URL/api/settings/test")
+          echo "Meta validation HTTP $code"
+          test "$code" = "200"
+          node <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/tmp/meta.json','utf8'));
+          console.log(x.result?.message||'No result message');
+          if(!x.success||!x.result?.ok) process.exit(1);
+          NODE
+
+      - name: Validate Meta webhook challenge flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/webhook.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data '{"integration":"whatsapp_webhook"}' \
+            "$BASE_URL/api/settings/test")
+          echo "Webhook validation HTTP $code"
+          test "$code" = "200"
+          node <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/tmp/webhook.json','utf8'));
+          console.log(x.result?.message||'No result message');
+          if(!x.success||!x.result?.ok) process.exit(1);
+          NODE
+
+      - name: Phase 20 complete
+        run: |
+          echo "WhatsApp Meta credentials and webhook are valid."
+          echo "No WhatsApp message was sent. WHATSAPP_SEND_ENABLED remains false."
