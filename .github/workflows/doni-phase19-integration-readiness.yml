@@ -1,0 +1,154 @@
+name: DONI Phase 19 Integration Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "DONI production base URL"
+        required: false
+        default: "https://doni-platform.vercel.app"
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Integration readiness audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: ${{ github.event.inputs.base_url || 'https://doni-platform.vercel.app' }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$BASE_URL/api/auth/login")
+          echo "/api/auth/login -> HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN authentication required");process.exit(1)};console.log("SUPER_ADMIN authenticated ✅")'
+
+      - name: Read safe settings snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/settings.json -w '%{http_code}' "$BASE_URL/api/settings")
+          echo "/api/settings -> HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));if(!x.success||!Array.isArray(x.settings))process.exit(1);console.log(`Settings loaded: ${x.settings.length}`)'
+
+      - name: Audit integration readiness and safety gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const payload=JSON.parse(fs.readFileSync('/tmp/settings.json','utf8'));
+          const settings=payload.settings||[];
+          const map=new Map(settings.map(s=>[s.key,s]));
+
+          const groups=[
+            ['WhatsApp', ['whatsapp.access_token','whatsapp.phone_number_id','whatsapp.verify_token']],
+            ['Duffel', ['flights.duffel_access_token']],
+            ['PKFARE', ['flights.pkfare_api_key']],
+            ['Google/RapidAPI fallback', ['flights.rapidapi_key']],
+            ['Stripe', ['payments.stripe_secret_key','payments.stripe_webhook_secret']],
+            ['Mercado Pago', ['payments.mercadopago_access_token']],
+            ['PayPal', ['payments.paypal_client_id','payments.paypal_client_secret','payments.paypal_webhook_id']],
+            ['Bazik / MonCash', ['payments.bazik_user_id','payments.bazik_secret_key','payments.bazik_webhook_secret']],
+            ['FX', ['fx.openexchangerates_app_id']],
+            ['Brevo', ['email.brevo_api_key','email.sender_email']],
+            ['FlightAware', ['tracking.flightaware_api_key']],
+            ['OAG', ['tracking.oag_api_key']],
+            ['OCR', ['ocr.anthropic_api_key']],
+          ];
+
+          const safetyKeys=[
+            'whatsapp.enabled',
+            'flights.duffel_enabled',
+            'flights.duffel_reprice_enabled',
+            'flights.google_fallback_enabled',
+            'tracking.enabled',
+            'tracking.alerts_enabled',
+            'tracking.disruption_alerts_enabled',
+            'tracking.oag_testing_enabled',
+            'payments.create_enabled',
+            'payments.refunds_execute_enabled',
+            'payments.manual_receipt_ocr_enabled',
+            'ticketing.write_enabled',
+            'ocr.enabled'
+          ];
+
+          function configured(key){return !!map.get(key)?.configured;}
+          function value(key){return map.get(key)?.value;}
+          function source(key){return map.get(key)?.source||'missing';}
+          function escapeMd(s){return String(s).replace(/\|/g,'\\|');}
+
+          const summary=[];
+          summary.push('# DONI Phase 19 — Integration Readiness');
+          summary.push('');
+          summary.push('No provider was contacted. No secret value was exposed.');
+          summary.push('');
+          summary.push('## Credential readiness');
+          summary.push('');
+          summary.push('| Integration | Status | Details |');
+          summary.push('|---|---|---|');
+
+          let readyGroups=0;
+          for(const [name,keys] of groups){
+            const ok=keys.every(configured);
+            if(ok) readyGroups++;
+            const details=keys.map(k=>`${k}: ${configured(k)?`configured (${source(k)})`:'missing'}`).join('<br>');
+            summary.push(`| ${escapeMd(name)} | ${ok?'✅ Ready':'⚪ À configurer'} | ${details} |`);
+            console.log(`${name}: ${ok?'READY':'NOT CONFIGURED'}`);
+          }
+
+          summary.push('');
+          summary.push('## Safety gates');
+          summary.push('');
+          summary.push('| Gate | Expected now | Current |');
+          summary.push('|---|---|---|');
+
+          let unsafe=[];
+          for(const key of safetyKeys){
+            const current=value(key);
+            const enabled=current===true || current==='true' || current===1 || current==='1';
+            if(enabled) unsafe.push(key);
+            summary.push(`| ${key} | OFF | ${enabled?'🔴 ON':'✅ OFF'} |`);
+          }
+
+          summary.push('');
+          summary.push(`Configured integration groups: **${readyGroups}/${groups.length}**`);
+          summary.push('');
+          if(unsafe.length){
+            summary.push(`🚨 Unsafe for readiness testing: execution gates enabled: ${unsafe.join(', ')}`);
+          } else {
+            summary.push('✅ All real-execution safety gates remain disabled.');
+          }
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n')+'\n');
+
+          if(unsafe.length){
+            console.error(`Real-execution gates must remain OFF during Phase 19: ${unsafe.join(', ')}`);
+            process.exit(1);
+          }
+          console.log(`Credential groups configured: ${readyGroups}/${groups.length}`);
+          console.log('All real-execution safety gates are OFF ✅');
+          NODE
+
+      - name: Phase 19 complete
+        run: echo "DONI integration readiness audit completed without contacting providers."
