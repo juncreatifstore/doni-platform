@@ -1,0 +1,114 @@
+name: DONI Phase 23 Bot Conversation
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      anchor_text:
+        description: Prior inbound message used to identify the test conversation
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  bot-conversation:
+    name: Controlled real bot conversation
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      ANCHOR_TEXT: ${{ inputs.anchor_text }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Verify transaction providers remain OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));const keys=["payments.create_enabled","flights.duffel_enabled","flights.duffel_reprice_enabled","ticketing.write_enabled","payments.refunds_execute_enabled"];let bad=false;for(const k of keys){const v=m.get(k)?.value;console.log(`${k}: ${String(v)}`);if(v===true)bad=true;}if(bad){console.error("Safety gate failure: real transaction provider is enabled");process.exit(1)}'
+
+      - name: Find Phase 21 test conversation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=200" -o /tmp/conversations.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/conversations.json","utf8"));for(const c of x.conversations||[])if(c.id)console.log(c.id)' > /tmp/ids.txt
+          : > /tmp/found_id.txt
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const a=process.env.ANCHOR_TEXT;const ms=x.conversation?.messages||[];process.exit(ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim()===a.trim())?0:1)'; then
+              echo "$id" > /tmp/found_id.txt
+              break
+            fi
+          done < /tmp/ids.txt
+          test -s /tmp/found_id.txt || (echo "Could not find the Phase 21 WhatsApp test conversation" && exit 1)
+          echo "CONVERSATION_ID=$(cat /tmp/found_id.txt)" >> "$GITHUB_ENV"
+
+      - name: Reset only the test conversation to language segment
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -X POST -o /tmp/reset.json -w '%{http_code}' "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID/reset")
+          echo "Reset HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/reset.json","utf8"));if(!x.success||x.conversation?.currentSegment!=="segment_language")process.exit(1);console.log(`Reset at ${x.resetAt}`);fs.writeFileSync("/tmp/reset_at.txt",x.resetAt)'
+
+      - name: Enable WhatsApp bot temporarily
+        run: |
+          set -euo pipefail
+          payload='{"key":"whatsapp.enabled","value":true}'
+          code=$(curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data "$payload" -o /tmp/enable.json -w '%{http_code}' "$BASE_URL/api/settings")
+          echo "Enable HTTP $code"
+          test "$code" = "200"
+
+      - name: Wait for Bonjour then flight choice 1
+        run: |
+          set -euo pipefail
+          echo "SEND NOW from the WhatsApp test phone: Bonjour"
+          echo "When DONI replies with the menu, reply: 1"
+          found=0
+          for attempt in $(seq 1 24); do
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
+            if RESET_AT=$(cat /tmp/reset_at.txt) node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const r=Date.parse(process.env.RESET_AT);const ms=(c.messages||[]).filter(m=>Date.parse(m.createdAt||0)>=r);const inbound=t=>ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim().toLowerCase()===t);const bot=s=>ms.some(m=>String(m.direction).toUpperCase()==="OUTBOUND"&&String(m.senderType).toUpperCase()==="BOT"&&String(m.text||"").toLowerCase().includes(s));const ok=inbound("bonjour")&&inbound("1")&&bot("que souhaitez-vous")&&bot("aller simple")&&c.currentSegment==="segment_trip_type";if(ok){console.log(`Phase 23 path verified; currentSegment=${c.currentSegment}`);process.exit(0)}process.exit(1)'; then
+              found=1
+              break
+            fi
+            echo "Attempt $attempt/24: waiting for the two-step WhatsApp conversation..."
+            sleep 10
+          done
+          test "$found" = "1" || (echo "Expected bot conversation was not observed in Live Ops" && exit 1)
+
+      - name: Disable WhatsApp after successful test
+        if: success()
+        run: |
+          curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data '{"key":"whatsapp.enabled","value":false}' "$BASE_URL/api/settings" -o /tmp/disable.json
+          echo "WhatsApp sending returned to OFF."
+
+      - name: Safety cleanup - force WhatsApp OFF
+        if: always()
+        run: |
+          if [ -f /tmp/doni-cookies.txt ]; then
+            curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data '{"key":"whatsapp.enabled","value":false}' "$BASE_URL/api/settings" -o /tmp/cleanup.json || true
+          fi
+          echo "Safety cleanup executed: WhatsApp OFF requested."
+
+      - name: Phase 23 complete
+        if: success()
+        run: echo "Phase 23 passed: real inbound messages triggered the DONI language/menu flow and real bot replies without enabling booking or payment providers."
