@@ -71,6 +71,44 @@ jobs:
           test -s /tmp/found_id.txt || (echo "Could not find WhatsApp test conversation" && exit 1)
           echo "CONVERSATION_ID=$(cat /tmp/found_id.txt)" >> "$GITHUB_ENV"
 
+      - name: Preflight payment provider readiness
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/preflight-detail.json
+          node -e '
+            const fs=require("fs");
+            const detail=JSON.parse(fs.readFileSync("/tmp/preflight-detail.json","utf8"));
+            const settings=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));
+            const c=detail.conversation||{};const state=c.state||{};const m=new Map((settings.settings||[]).map(s=>[s.key,s]));
+            const isConfigured=(key)=>{const s=m.get(key);return Boolean(s?.configured)||s?.source==="database"||s?.source==="environment"||(typeof s?.value==="string"&&s.value.trim().length>0&&!/missing/i.test(s.value));};
+            let country=String(state.payment_country||c.country||"").toUpperCase();
+            const n=String(c.waId||"").replace(/\D/g,"");
+            if(!["MX","US","HT","DO","PH"].includes(country)){
+              if(n.startsWith("509"))country="HT";else if(n.startsWith("52"))country="MX";else if(n.startsWith("63"))country="PH";else if(/^1(809|829|849)/.test(n))country="DO";else if(n.startsWith("1"))country="US";else country="default";
+            }
+            const ready={
+              mercado_pago:isConfigured("payments.mercadopago_access_token"),
+              stripe:isConfigured("payments.stripe_secret_key"),
+              paypal:isConfigured("payments.paypal_client_id")&&isConfigured("payments.paypal_client_secret"),
+              zelle:isConfigured("payments.zelle_email")||isConfigured("payments.zelle_phone"),
+              bank:isConfigured("payments.us_bank_instructions"),
+              moncash:isConfigured("payments.bazik_user_id")&&isConfigured("payments.bazik_secret_key")
+            };
+            let allowed=[];
+            if(country==="MX")allowed=["mercado_pago",...(m.get("payments.mx_paypal_enabled")?.value===true?["paypal"]:[])];
+            else if(country==="HT")allowed=["stripe","paypal","zelle","moncash"];
+            else if(country==="US")allowed=["stripe","paypal","zelle","bank"];
+            else if(country==="DO")allowed=["stripe","paypal","zelle"];
+            else allowed=["stripe","paypal"];
+            const available=allowed.filter(k=>ready[k]);
+            console.log(`Payment country detected: ${country}`);
+            console.log(`Configured payment providers available: ${available.length?available.join(", "):"none"}`);
+            if(!available.length){
+              console.error(`PAYMENT_PROVIDER_NOT_READY for ${country}. Configure at least one of: ${allowed.join(", ")}`);
+              process.exit(4);
+            }
+          '
+
       - name: Reset test conversation
         run: |
           set -euo pipefail
