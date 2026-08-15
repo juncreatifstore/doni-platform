@@ -1,5 +1,6 @@
 import type {FlightOffer} from './types';
 import {fetchDuffelOffer} from '../providers/duffel';
+import {getSetting} from '@/lib/settings/service';
 
 export interface RepriceResult { ok:boolean; changed:boolean; oldPrice:number; newPrice:number; currency:string; newOffer:FlightOffer; reason?:string; }
 function minutes(iso:string|undefined|null){if(!iso)return 0;const m=String(iso).match(/PT(?:(\d+)H)?(?:(\d+)M)?/);return m?(+(m[1]||0))*60+(+(m[2]||0)):0;}
@@ -7,7 +8,7 @@ function normalizeDuffel(o:any):FlightOffer{const slices=Array.isArray(o?.slices
 export async function repriceOffer(offer:FlightOffer):Promise<RepriceResult>{
  const oldPrice=Number(offer.price_total||0);
  if(offer.provider!=='duffel') return {ok:true,changed:false,oldPrice,newPrice:oldPrice,currency:offer.currency,newOffer:offer};
- if(process.env.DUFFEL_REPRICE_ENABLED!=='true') return {ok:true,changed:false,oldPrice,newPrice:oldPrice,currency:offer.currency,newOffer:offer,reason:'duffel_reprice_disabled'};
+ if(!(await getSetting<boolean>('flights.duffel_reprice_enabled'))) return {ok:true,changed:false,oldPrice,newPrice:oldPrice,currency:offer.currency,newOffer:offer,reason:'duffel_reprice_disabled'};
  const raw=await fetchDuffelOffer(offer.offer_id);
  if(!raw)return {ok:false,changed:false,oldPrice,newPrice:oldPrice,currency:offer.currency,newOffer:offer,reason:'offer_unavailable'};
  const next=normalizeDuffel(raw); const newPrice=Number(next.price_total||0); const changed=Math.abs(newPrice-oldPrice)>=0.01 || next.currency!==offer.currency;
