@@ -1,0 +1,151 @@
+name: DONI Phase 26 Traveler Collection
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      anchor_text:
+        description: Prior inbound message used to identify the WhatsApp test conversation
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  traveler-collection:
+    name: Controlled traveler collection before payment
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      ANCHOR_TEXT: ${{ inputs.anchor_text }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Validate credentials and safety gates
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            const secret=m.get("flights.duffel_access_token");
+            const configured=Boolean(secret?.configured)||secret?.source==="database"||secret?.source==="environment"||(typeof secret?.value==="string"&&secret.value.length>8&&!/missing/i.test(secret.value));
+            console.log(`Duffel credential configured: ${configured}`);
+            if(!configured){console.error("DUFFEL_NOT_CONFIGURED");process.exit(3)}
+            const mustRemainOff=["payments.create_enabled","flights.google_fallback_enabled","ticketing.write_enabled","payments.refunds_execute_enabled"];
+            let bad=false;for(const k of mustRemainOff){const v=m.get(k)?.value;console.log(`${k}: ${String(v)}`);if(v===true)bad=true;}
+            if(bad){console.error("Safety gate failure: payment/ticketing/refund/fallback capability is enabled");process.exit(1)}
+          '
+
+      - name: Find WhatsApp test conversation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=200" -o /tmp/conversations.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/conversations.json","utf8"));for(const c of x.conversations||[])if(c.id)console.log(c.id)' > /tmp/ids.txt
+          : > /tmp/found_id.txt
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const a=process.env.ANCHOR_TEXT;const ms=x.conversation?.messages||[];process.exit(ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim()===a.trim())?0:1)'; then
+              echo "$id" > /tmp/found_id.txt
+              break
+            fi
+          done < /tmp/ids.txt
+          test -s /tmp/found_id.txt || (echo "Could not find WhatsApp test conversation" && exit 1)
+          echo "CONVERSATION_ID=$(cat /tmp/found_id.txt)" >> "$GITHUB_ENV"
+
+      - name: Reset test conversation
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -X POST -o /tmp/reset.json -w '%{http_code}' "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID/reset")
+          echo "Reset HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/reset.json","utf8"));if(!x.success||x.conversation?.currentSegment!=="segment_language")process.exit(1);fs.writeFileSync("/tmp/reset_at.txt",x.resetAt)'
+          echo "RESET_AT=$(cat /tmp/reset_at.txt)" >> "$GITHUB_ENV"
+
+      - name: Enable WhatsApp Duffel Search and Repricing temporarily
+        run: |
+          set -euo pipefail
+          for item in 'whatsapp.enabled true' 'flights.duffel_enabled true' 'flights.duffel_reprice_enabled true'; do
+            key=$(echo "$item" | awk '{print $1}'); value=$(echo "$item" | awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$value")
+            code=$(curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data "$body" -o /tmp/setting.json -w '%{http_code}' "$BASE_URL/api/settings")
+            echo "$key -> HTTP $code"; test "$code" = "200"
+          done
+
+      - name: Wait for traveler collection and compliance recap
+        run: |
+          set -euo pipefail
+          echo "Use WhatsApp to search and select a Duffel offer, then choose manual traveler entry (2)."
+          echo "Use synthetic TEST traveler data only. Stop when DONI shows the recap and asks whether everything is correct. Do NOT answer yes/no at the recap."
+          found=0
+          for attempt in $(seq 1 120); do
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
+
+            if node -e '
+              const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const reset=Date.parse(process.env.RESET_AT||"");
+              const audit=c.state?.repricing_audit;const checked=Date.parse(audit?.checked_at||"");
+              const travelers=Array.isArray(c.state?.travelers)?c.state.travelers:[];const compliance=c.state?.compliance;
+              const ok=c.currentSegment==="segment_recap"&&c.state?.recap_awaiting===true&&travelers.length>0&&compliance?.ok===true&&Boolean(c.state?.contact_email)&&Boolean(c.state?.contact_phone)&&audit?.provider==="duffel"&&audit?.ok===true&&Number.isFinite(checked)&&checked>=reset;
+              if(ok)console.log(JSON.stringify({segment:c.currentSegment,travelerCount:travelers.length,complianceOk:true,contactEmailConfigured:true,contactPhoneConfigured:true,repricingVerified:true},null,2));
+              process.exit(ok?0:1)
+            '; then
+              echo "Phase 26 verified: traveler data, contact data and compliance reached recap before payment."
+              found=1; break
+            fi
+
+            if node -e '
+              const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const comp=c.state?.compliance;if(!(comp&&comp.ok===false))process.exit(1);console.error("Traveler compliance failed. Correct the synthetic traveler data before continuing.");process.exit(0)
+            '; then
+              exit 6
+            fi
+
+            if node -e '
+              const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const ms=x.conversation?.messages||[];const reset=Date.parse(process.env.RESET_AT||"");const m=[...ms].reverse().find(m=>m.senderType==="SYSTEM"&&m.metadata?.event==="whatsapp_dispatch_failed"&&Date.parse(m.createdAt||0)>=reset);if(!m)process.exit(1);console.error("WhatsApp dispatch failure:",m.metadata?.error||m.metadata?.firstError||m.text);process.exit(0)
+            '; then
+              exit 2
+            fi
+
+            if [ $((attempt % 12)) -eq 0 ]; then
+              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};console.log(JSON.stringify({segment:c.currentSegment,travelerCount:Array.isArray(c.state?.travelers)?c.state.travelers.length:0,complianceStatus:c.state?.compliance?.ok===true?"ok":c.state?.compliance?.ok===false?"failed":"pending",contactEmailConfigured:Boolean(c.state?.contact_email),contactPhoneConfigured:Boolean(c.state?.contact_phone),repricingVerified:c.state?.repricing_audit?.ok===true},null,2));'
+            fi
+            sleep 5
+          done
+          if [ "$found" != "1" ]; then
+            echo "Phase 26 timeout before recap validation."
+            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};console.log(JSON.stringify({segment:c.currentSegment,travelerCount:Array.isArray(c.state?.travelers)?c.state.travelers.length:0,complianceStatus:c.state?.compliance?.ok===true?"ok":c.state?.compliance?.ok===false?"failed":"pending",contactEmailConfigured:Boolean(c.state?.contact_email),contactPhoneConfigured:Boolean(c.state?.contact_phone),repricingVerified:c.state?.repricing_audit?.ok===true},null,2));'
+            exit 1
+          fi
+
+      - name: Safety cleanup - force Search Repricing and WhatsApp OFF
+        if: always()
+        run: |
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in flights.duffel_enabled flights.duffel_reprice_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data "$body" "$BASE_URL/api/settings" -o /tmp/cleanup.json || true
+            done
+          fi
+          echo "Safety cleanup executed: Duffel Search OFF, Duffel Repricing OFF, WhatsApp OFF requested."
+
+      - name: Phase 26 complete
+        if: success()
+        run: |
+          echo "Phase 26 passed - traveler collection and compliance reached recap while payments, booking, ticketing and refunds remained disabled."
