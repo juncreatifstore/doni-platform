@@ -1,0 +1,219 @@
+name: DONI Phase 18 Business Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  business-test:
+    name: Controlled DONI business flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate database secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${DATABASE_URL:-}" || (echo "Missing DATABASE_URL" && exit 1)
+          test -n "${DIRECT_URL:-}" || (echo "Missing DIRECT_URL" && exit 1)
+          case "$DATABASE_URL" in postgres://*|postgresql://*) ;; *) echo "DATABASE_URL must be PostgreSQL"; exit 1;; esac
+          case "$DIRECT_URL" in postgres://*|postgresql://*) ;; *) echo "DIRECT_URL must be PostgreSQL"; exit 1;; esac
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run controlled business flow and cleanup
+        shell: bash
+        run: |
+          node <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+          const prisma = new PrismaClient();
+          const run = `PH18-${Date.now()}-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
+          const waId = `test-${run}`;
+          const paymentRef = `PAY-${run}`;
+          const ticketRef = `TKT-${run}`;
+          const ids = { conversation:null, payment:null, ticket:null, postBooking:null };
+
+          function assert(condition, message) {
+            if (!condition) throw new Error(`ASSERT_FAILED: ${message}`);
+          }
+
+          async function cleanup() {
+            console.log('Cleaning Phase 18 test data...');
+            if (ids.postBooking) {
+              await prisma.refundRequest.deleteMany({ where:{ postBookingId:ids.postBooking } }).catch(()=>{});
+              await prisma.postBookingEvent.deleteMany({ where:{ requestId:ids.postBooking } }).catch(()=>{});
+              await prisma.postBookingRequest.deleteMany({ where:{ id:ids.postBooking } }).catch(()=>{});
+            }
+            if (ids.ticket) {
+              await prisma.ticketDelivery.deleteMany({ where:{ ticketId:ids.ticket } }).catch(()=>{});
+              await prisma.ticketEvent.deleteMany({ where:{ ticketId:ids.ticket } }).catch(()=>{});
+              await prisma.ticket.deleteMany({ where:{ id:ids.ticket } }).catch(()=>{});
+            }
+            if (ids.payment) {
+              await prisma.manualPaymentReview.deleteMany({ where:{ paymentId:ids.payment } }).catch(()=>{});
+              await prisma.paymentEvent.deleteMany({ where:{ paymentId:ids.payment } }).catch(()=>{});
+              await prisma.payment.deleteMany({ where:{ id:ids.payment } }).catch(()=>{});
+            }
+            if (ids.conversation) {
+              await prisma.conversationMessage.deleteMany({ where:{ conversationId:ids.conversation } }).catch(()=>{});
+              await prisma.doniConversation.deleteMany({ where:{ id:ids.conversation } }).catch(()=>{});
+            }
+          }
+
+          async function main() {
+            console.log(`Phase 18 run: ${run}`);
+            console.log('External providers remain untouched: no WhatsApp send, no booking, no real payment.');
+
+            const conversation = await prisma.doniConversation.create({
+              data:{
+                waId,
+                country:'MX',
+                language:'fr',
+                lockedLanguage:'fr',
+                businessSegment:'flights',
+                status:'ACTIVE',
+                currentSegment:'segment_language',
+                state:{ testRun:run, origin:'MEX', destination:'BOG', tripType:'round_trip' },
+                lastMessageAt:new Date()
+              }
+            });
+            ids.conversation = conversation.id;
+            assert(conversation.status === 'ACTIVE', 'conversation should start ACTIVE');
+            console.log('1/7 Conversation created ✅');
+
+            const funnel = [
+              'segment_service_selection',
+              'segment_trip_type',
+              'segment_origin',
+              'segment_destination',
+              'segment_departure_date',
+              'segment_passengers',
+              'segment_search',
+              'segment_results',
+              'segment_contact_email',
+              'segment_payment_choice'
+            ];
+            let previous = 'segment_language';
+            for (const segment of funnel) {
+              await prisma.doniConversation.update({
+                where:{ id:conversation.id },
+                data:{ previousSegment:previous, currentSegment:segment, state:{ testRun:run, current:segment } }
+              });
+              previous = segment;
+            }
+            const progressed = await prisma.doniConversation.findUnique({ where:{id:conversation.id} });
+            assert(progressed?.currentSegment === 'segment_payment_choice', 'conversation funnel progression failed');
+            console.log('2/7 Funnel progression ✅');
+
+            const message = await prisma.conversationMessage.create({
+              data:{ conversationId:conversation.id, direction:'inbound', senderType:'customer', text:'PHASE 18 TEST MESSAGE', metadata:{testRun:run} }
+            });
+            assert(message.conversationId === conversation.id, 'conversation message relationship failed');
+            console.log('3/7 Conversation message persistence ✅');
+
+            const payment = await prisma.payment.create({
+              data:{
+                reference:paymentRef,
+                conversationId:conversation.id,
+                provider:'phase18-test',
+                currency:'USD',
+                amount:'125.00',
+                status:'PAID',
+                providerPayload:{ testRun:run, simulated:true }
+              }
+            });
+            ids.payment = payment.id;
+            await prisma.paymentEvent.create({
+              data:{ paymentId:payment.id, provider:'phase18-test', providerEventId:`evt-${run}`, eventType:'PAYMENT_TEST_PAID', reference:paymentRef, payload:{simulated:true} }
+            });
+            const paid = await prisma.payment.findUnique({ where:{reference:paymentRef}, include:{events:true} });
+            assert(paid?.status === 'PAID' && paid.events.length === 1, 'payment persistence/event failed');
+            console.log('4/7 Simulated payment lifecycle ✅');
+
+            const ticket = await prisma.ticket.create({
+              data:{
+                reference:ticketRef,
+                conversationId:conversation.id,
+                status:'ISSUED',
+                pnr:'PH18T1',
+                ticketNumber:`TEST-${Date.now()}`,
+                providerBookingId:`booking-${run}`,
+                issuedBy:'phase18-test',
+                issuedAt:new Date(),
+                deliveryStatus:'DELIVERED',
+                deliveredAt:new Date(),
+                payload:{ testRun:run, simulated:true }
+              }
+            });
+            ids.ticket = ticket.id;
+            await prisma.ticketEvent.create({ data:{ticketId:ticket.id,eventType:'PHASE18_ISSUED',status:'ISSUED',actor:'automation',details:{simulated:true}} });
+            await prisma.ticketDelivery.create({ data:{ticketId:ticket.id,channel:'test',status:'DELIVERED',metadata:{simulated:true}} });
+            const issued = await prisma.ticket.findUnique({where:{reference:ticketRef},include:{events:true,deliveries:true}});
+            assert(issued?.status === 'ISSUED' && issued.events.length === 1 && issued.deliveries.length === 1, 'ticket lifecycle failed');
+            console.log('5/7 Simulated ticketing lifecycle ✅');
+
+            const post = await prisma.postBookingRequest.create({
+              data:{
+                reference:ticketRef,
+                ticketId:ticket.id,
+                conversationId:conversation.id,
+                phone:waId,
+                requestType:'flight_change',
+                status:'waiting_admin_review',
+                priority:'P1',
+                payload:{ testRun:run, simulated:true },
+                clientConsentText:'PHASE 18 TEST CONSENT',
+                createdBy:'phase18-automation'
+              }
+            });
+            ids.postBooking = post.id;
+            await prisma.postBookingEvent.create({
+              data:{requestId:post.id,eventType:'created',fromStatus:'request_created',toStatus:'waiting_admin_review',details:{simulated:true}}
+            });
+            const postCheck = await prisma.postBookingRequest.findUnique({where:{id:post.id},include:{events:true}});
+            assert(postCheck?.status === 'waiting_admin_review' && postCheck.events.length === 1, 'post-booking lifecycle failed');
+            console.log('6/7 Post-booking lifecycle ✅');
+
+            const [conversationCheck,paymentCheck,ticketCheck,postBookingCheck] = await Promise.all([
+              prisma.doniConversation.count({where:{id:conversation.id}}),
+              prisma.payment.count({where:{reference:paymentRef,status:'PAID'}}),
+              prisma.ticket.count({where:{reference:ticketRef,status:'ISSUED'}}),
+              prisma.postBookingRequest.count({where:{id:post.id,status:'waiting_admin_review'}})
+            ]);
+            assert(conversationCheck===1 && paymentCheck===1 && ticketCheck===1 && postBookingCheck===1, 'end-to-end consistency check failed');
+            console.log('7/7 End-to-end database consistency ✅');
+            console.log('PHASE 18 BUSINESS FLOW PASSED ✅');
+          }
+
+          main()
+            .catch((error)=>{
+              console.error(error instanceof Error ? error.message : error);
+              process.exitCode = 1;
+            })
+            .finally(async()=>{
+              await cleanup();
+              await prisma.$disconnect();
+              console.log('Phase 18 cleanup complete ✅');
+            });
+          NODE
+
+      - name: Phase 18 complete
+        run: echo "DONI Phase 18 controlled business flow passed and test data was cleaned."
