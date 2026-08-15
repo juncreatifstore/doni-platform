@@ -69,6 +69,7 @@ jobs:
           echo "Reset HTTP $code"
           test "$code" = "200"
           node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/reset.json","utf8"));if(!x.success||x.conversation?.currentSegment!=="segment_language")process.exit(1);fs.writeFileSync("/tmp/reset_at.txt",x.resetAt)'
+          echo "RESET_AT=$(cat /tmp/reset_at.txt)" >> "$GITHUB_ENV"
 
       - name: Enable WhatsApp bot temporarily
         run: |
@@ -92,18 +93,18 @@ jobs:
               break
             fi
 
-            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const ms=x.conversation?.messages||[];const m=[...ms].reverse().find(m=>m.senderType==="SYSTEM"&&m.metadata?.event==="whatsapp_dispatch_failed");if(!m)process.exit(1);console.error("DONI dispatch failure detected:");console.error(JSON.stringify({text:m.text,errorCode:m.metadata?.errorCode,attempts:m.metadata?.attempts},null,2));process.exit(0)'; then
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const ms=x.conversation?.messages||[];const reset=Date.parse(process.env.RESET_AT||"");const m=[...ms].reverse().find(m=>m.senderType==="SYSTEM"&&m.metadata?.event==="whatsapp_dispatch_failed"&&Date.parse(m.createdAt||0)>=reset);if(!m)process.exit(1);console.error("DONI dispatch failure detected:");console.error(JSON.stringify({text:m.text,error:m.metadata?.error,firstError:m.metadata?.firstError,providerMessageId:m.metadata?.providerMessageId},null,2));process.exit(0)'; then
               exit 2
             fi
 
             if [ $((attempt % 4)) -eq 0 ]; then
-              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-6).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,100),event:m.metadata?.event,errorCode:m.metadata?.errorCode}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria,recentMessages:ms},null,2));'
+              node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ms=(c.messages||[]).slice(-6).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,100),event:m.metadata?.event,error:m.metadata?.error,firstError:m.metadata?.firstError,createdAt:m.createdAt}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria,recentMessages:ms},null,2));'
             fi
             sleep 5
           done
           if [ "$found" != "1" ]; then
             echo "Phase 24A timeout before passenger segment."
-            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const ms=(c.messages||[]).slice(-10).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120),event:m.metadata?.event,errorCode:m.metadata?.errorCode,attempts:m.metadata?.attempts}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:c.state?.criteria||{},recentMessages:ms},null,2));'
+            node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const ms=(c.messages||[]).slice(-10).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120),event:m.metadata?.event,error:m.metadata?.error,firstError:m.metadata?.firstError,createdAt:m.createdAt}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:c.state?.criteria||{},recentMessages:ms},null,2));'
             exit 1
           fi
 
