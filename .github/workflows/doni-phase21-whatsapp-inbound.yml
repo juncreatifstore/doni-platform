@@ -1,0 +1,102 @@
+name: DONI Phase 21 WhatsApp Inbound
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      expected_text:
+        description: Exact WhatsApp message to find
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  inbound-validation:
+    name: Real WhatsApp inbound validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      EXPECTED_TEXT: ${{ inputs.expected_text }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            --data "$payload" \
+            "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Confirm WhatsApp sending remains OFF
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/settings.json -w '%{http_code}' "$BASE_URL/api/settings")
+          test "$code" = "200"
+          node <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/tmp/settings.json','utf8'));
+          const map=new Map((x.settings||[]).map(s=>[s.key,s]));
+          const enabled=map.get('whatsapp.enabled');
+          console.log(`whatsapp.enabled: ${String(enabled?.value)} (${enabled?.source||'unknown'})`);
+          if(enabled?.value===true){
+            console.error('Safety gate failure: WhatsApp sending must remain OFF during Phase 21.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: Find real inbound WhatsApp message in Live Ops
+        run: |
+          set -euo pipefail
+          echo "Searching for inbound message: $EXPECTED_TEXT"
+          found=0
+          for attempt in $(seq 1 12); do
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=100" -o /tmp/conversations.json
+            node <<'NODE' > /tmp/ids.txt
+            const fs=require('fs');
+            const x=JSON.parse(fs.readFileSync('/tmp/conversations.json','utf8'));
+            for(const c of (x.conversations||[])) if(c?.id) console.log(c.id);
+            NODE
+            while IFS= read -r id; do
+              [ -n "$id" ] || continue
+              curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+              if CONVERSATION_ID="$id" node <<'NODE'
+              const fs=require('fs');
+              const x=JSON.parse(fs.readFileSync('/tmp/detail.json','utf8'));
+              const c=x.conversation||{};
+              const messages=Array.isArray(c.messages)?c.messages:[];
+              const expected=process.env.EXPECTED_TEXT;
+              const match=messages.find(m=>String(m.direction||'').toUpperCase()==='INBOUND' && String(m.text||'').trim()===expected.trim());
+              if(!match) process.exit(1);
+              console.log(`FOUND inbound message in conversation ${process.env.CONVERSATION_ID}`);
+              console.log(`Provider message id present: ${match.providerMessageId?'YES':'NO'}`);
+              console.log(`Content type: ${match.contentType||'unknown'}`);
+              NODE
+              then
+                found=1
+                break
+              fi
+            done < /tmp/ids.txt
+            if [ "$found" = "1" ]; then break; fi
+            echo "Attempt $attempt/12: message not found yet; waiting 10s..."
+            sleep 10
+          done
+          test "$found" = "1" || (echo "Inbound WhatsApp message not found in Live Ops." && exit 1)
+
+      - name: Phase 21 complete
+        run: |
+          echo "Phase 21 passed: a real inbound WhatsApp message reached DONI and was visible in Live Ops while outbound sending remained disabled."
