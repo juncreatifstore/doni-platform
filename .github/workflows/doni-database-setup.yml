@@ -47,22 +47,36 @@ jobs:
 
           function normalize(raw, expectedName) {
             let value = String(raw ?? '').trim();
-            value = value.replace(/^```(?:env)?\s*/i, '').replace(/```$/i, '').trim();
-            const assignment = new RegExp(`^${expectedName}\\s*=\\s*`, 'i');
-            value = value.replace(assignment, '').trim();
-            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-              value = value.slice(1, -1).trim();
+            value = value.replace(/^```(?:env|bash|sh)?\s*/i, '').replace(/```$/i, '').trim();
+            value = value.replace(new RegExp(`^${expectedName}\\s*=\\s*`, 'i'), '').trim();
+
+            // Accept values copied as: psql 'postgresql://...', export DATABASE_URL=..., or text containing the URL.
+            const startMatch = value.match(/postgres(?:ql)?:\/\//i);
+            if (startMatch && startMatch.index !== undefined) {
+              value = value.slice(startMatch.index);
             }
+
             value = value.replace(/[\r\n]/g, '').trim();
+            value = value.replace(/["'`;\s]+$/g, '').trim();
+            value = value.replace(/^["']+/g, '').trim();
+
+            // Safe diagnostics: never print credentials or host.
+            console.log(`${expectedName}: received length ${String(raw ?? '').length}`);
+            console.log(`${expectedName}: PostgreSQL prefix detected = ${/^postgres(?:ql)?:\/\//i.test(value) ? 'YES' : 'NO'}`);
+
+            if (!/^postgres(?:ql)?:\/\//i.test(value)) {
+              throw new Error(`${expectedName}: no PostgreSQL connection URL detected. Copy the Neon connection string itself, not a masked value or variable reference.`);
+            }
 
             let parsed;
             try { parsed = new URL(value); }
-            catch { throw new Error(`${expectedName}: invalid URL format`); }
+            catch { throw new Error(`${expectedName}: PostgreSQL prefix found but URL is malformed. Copy a fresh connection string directly from Neon Connect.`); }
 
             if (!['postgresql:', 'postgres:'].includes(parsed.protocol)) {
-              throw new Error(`${expectedName}: invalid scheme (${parsed.protocol || 'missing'}), expected postgresql://`);
+              throw new Error(`${expectedName}: invalid scheme; expected postgresql://`);
             }
             if (!parsed.hostname) throw new Error(`${expectedName}: database hostname is missing`);
+            if (!parsed.username) throw new Error(`${expectedName}: database username is missing`);
             return value;
           }
 
