@@ -81,14 +81,14 @@ jobs:
       - name: Wait for controlled flight funnel
         run: |
           set -euo pipefail
-          echo "Send on WhatsApp, one at a time and wait for DONI between messages: Bonjour -> 1 -> 1 -> PAP -> MEX -> 20/08/2026"
-          echo "STOP when DONI asks for passenger count."
+          echo "Use WhatsApp normally: Bonjour -> Vols -> trip type -> origin -> destination -> departure date."
+          echo "STOP as soon as DONI asks how many passengers. Do not send passenger count in Phase 24A."
           found=0
           for attempt in $(seq 1 24); do
             curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
 
-            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const ok=c.currentSegment==="segment_passengers"&&criteria.trip_type==="oneway"&&criteria.origin==="PAP"&&criteria.destination==="MEX"&&criteria.depart_date==="2026-08-20";process.exit(ok?0:1)'; then
-              echo "Phase 24A verified."
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const criteria=c.state?.criteria||{};const reset=Date.parse(process.env.RESET_AT||"");const ms=c.messages||[];const askedPassengers=ms.some(m=>m.senderType==="BOT"&&Date.parse(m.createdAt||0)>=reset&&/combien de .*passagers/i.test(String(m.text||"")));const valid=Boolean(criteria.trip_type&&criteria.origin&&criteria.destination&&criteria.depart_date);process.exit(askedPassengers&&valid?0:1)'; then
+              echo "Phase 24A verified: DONI reached passenger selection with valid flight criteria."
               found=1
               break
             fi
@@ -103,7 +103,7 @@ jobs:
             sleep 5
           done
           if [ "$found" != "1" ]; then
-            echo "Phase 24A timeout before passenger segment."
+            echo "Phase 24A timeout before passenger prompt."
             node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const ms=(c.messages||[]).slice(-10).map(m=>({direction:m.direction,senderType:m.senderType,text:String(m.text||"").slice(0,120),event:m.metadata?.event,error:m.metadata?.error,firstError:m.metadata?.firstError,createdAt:m.createdAt}));console.log(JSON.stringify({currentSegment:c.currentSegment,criteria:c.state?.criteria||{},recentMessages:ms},null,2));'
             exit 1
           fi
