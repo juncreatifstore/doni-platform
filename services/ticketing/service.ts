@@ -24,7 +24,7 @@ export async function getTicketQueue(){
 }
 export async function getRecentlyIssued(){
   const rows=await prisma.ticket.findMany({where:{status:'ISSUED'},include:{conversation:true},orderBy:{issuedAt:'desc'},take:10});
-  return rows.map((t:any)=>{const payload=payloadOf(t.payload);return {id:t.id,reference:t.reference,pnr:t.pnr,ticketNumber:t.ticketNumber,issuedAt:t.issuedAt,deliveryStatus:t.deliveryStatus,passengerCount:payload.passengers?.length||0,segmentCount:payload.segments?.length||0,waId:t.conversation?.waId||null}})
+  return rows.map((t:any)=>{const payload=payloadOf(t.payload);return {id:t.id,reference:t.reference,pnr:t.pnr,ticketNumber:t.ticketNumber,issuedAt:t.issuedAt,deliveryStatus:t.deliveryStatus,passengerCount:payload.passengers?.length||0,segmentCount:payload.segments?.length||0,segments:payload.segments||[],contact:payload.contact||{},total:payload.total,currency:payload.currency,waId:t.conversation?.waId||null}})
 }
 export async function issueManual(input:{reference:string;pnr:string;ticketNumber?:string;agent?:string}){
   const ticket=await prisma.ticket.findUnique({where:{reference:input.reference}}); if(!ticket) throw new Error('ticket_not_found');
@@ -40,5 +40,19 @@ export async function issueManual(input:{reference:string;pnr:string;ticketNumbe
     return done;
   });
   await registerTicketForTracking(input.reference).catch(()=>null);
+  return updated;
+}
+
+export async function setSegmentPnrs(input:{reference:string;pnrs:string[];agent?:string}){
+  const ticket=await prisma.ticket.findUnique({where:{reference:input.reference}}); if(!ticket) throw new Error('ticket_not_found');
+  if(ticket.status!=='ISSUED') throw new Error('ticket_not_issued');
+  const payload=payloadOf(ticket.payload); const segments=payload.segments||[];
+  if(!segments.length) throw new Error('ticket_missing_segments');
+  if(input.pnrs.length!==segments.length) throw new Error('segment_pnr_count_mismatch');
+  const pnrs=input.pnrs.map(x=>String(x||'').trim().toUpperCase());
+  for(const pnr of pnrs) if(!/^[A-Z0-9]{4,12}$/.test(pnr)) throw new Error('invalid_segment_pnr');
+  const next={...payload,segments:segments.map((s:any,i:number)=>({...s,pnr:pnrs[i],bookingReference:pnrs[i]}))};
+  const updated=await prisma.ticket.update({where:{id:ticket.id},data:{payload:next as any}});
+  await prisma.ticketEvent.create({data:{ticketId:ticket.id,eventType:'segment_pnrs_updated',status:'ISSUED',actor:input.agent||'portal',details:{pnrs}}});
   return updated;
 }
