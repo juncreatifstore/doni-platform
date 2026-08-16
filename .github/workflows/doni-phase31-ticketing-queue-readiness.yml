@@ -1,0 +1,83 @@
+name: DONI Phase 31 Ticketing Queue Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  ticketing-queue-readiness:
+    name: Read-only ticketing queue readiness validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Verify all issuance and transaction gates are OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            const mustOff=["payments.create_enabled","payments.manual_create_enabled","ticketing.write_enabled","payments.refunds_execute_enabled"];
+            let bad=false;for(const k of mustOff){const v=m.get(k)?.value;console.log(`${k}: ${String(v)}`);if(v===true)bad=true;}
+            if(bad){console.error("Safety gate failure: a protected capability is enabled");process.exit(1)}
+          '
+
+      - name: Validate latest pending manual-issue ticket is complete
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/queue.json","utf8"));
+            if(!x.success){console.error("Ticketing queue API failed",x.error||"");process.exit(1)}
+            const rows=(x.rows||[]).filter(t=>t.status==="PENDING_MANUAL_ISSUE");
+            rows.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));const t=rows[0];
+            if(!t){console.error("No PENDING_MANUAL_ISSUE ticket found");process.exit(3)}
+            if(!String(t.reference||"").startsWith("TKT-PAY-")){console.error("Unexpected ticket reference",t.reference);process.exit(1)}
+            if(!(Number(t.passengerCount)>0)){console.error("Ticket has no passengers");process.exit(1)}
+            if(!(Number(t.segmentCount)>0)){console.error("Ticket has no flight segments");process.exit(1)}
+            if(!Array.isArray(t.passengers)||t.passengers.length!==Number(t.passengerCount)){console.error("Passenger payload mismatch");process.exit(1)}
+            if(!Array.isArray(t.segments)||t.segments.length!==Number(t.segmentCount)){console.error("Segment payload mismatch");process.exit(1)}
+            if(!(Number(t.total)>0)){console.error("Ticket total missing or invalid");process.exit(1)}
+            if(!String(t.currency||"").trim()){console.error("Ticket currency missing");process.exit(1)}
+            if(t.pnr||t.ticketNumber){console.error("SAFETY FAILURE: ticket already contains issuance identifiers");process.exit(7)}
+            const issued=(x.issued||[]).find(i=>i.reference===t.reference);
+            if(issued){console.error("SAFETY FAILURE: same ticket appears in issued list");process.exit(7)}
+            const safe={reference:t.reference,status:t.status,passengerCount:t.passengerCount,segmentCount:t.segmentCount,total:t.total,currency:t.currency,hasContact:Boolean(t.contact&&Object.keys(t.contact).length),pnrAssigned:false,ticketNumberAssigned:false,issued:false};
+            console.log(JSON.stringify(safe,null,2));
+          '
+
+      - name: Re-check ticketing write gate remains OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings-final.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings-final.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            const v=m.get("ticketing.write_enabled")?.value;console.log(`ticketing.write_enabled final: ${String(v)}`);if(v===true)process.exit(1)
+          '
+
+      - name: Phase 31 complete
+        run: |
+          echo "Phase 31 passed - ticketing queue record is complete and ready for manual issuance while ticketing write remains disabled and no issuance identifiers exist."
