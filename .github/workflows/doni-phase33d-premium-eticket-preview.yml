@@ -1,0 +1,103 @@
+name: DONI Phase 33D Premium E-ticket Preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  premium-preview:
+    name: Generate premium per-segment-PNR e-ticket artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install TS runner
+        run: npm install --no-save --no-audit --no-fund tsx
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Generate premium e-ticket PDF
+        run: |
+          mkdir -p preview
+          cat > /tmp/generate-phase33d.ts <<'EOF'
+          import { writeFileSync } from 'node:fs';
+          import { buildEticketPdf } from '${{ github.workspace }}/services/ticketing/pdf.ts';
+
+          async function main(){
+            const ticket = {
+              reference: 'TKT-PHASE33D-PREMIUM',
+              pnr: 'GLOBAL1',
+              ticketNumber: 'TST-33D-000001',
+              issuedAt: new Date('2026-08-16T00:00:00Z'),
+              payload: {
+                passengers: [
+                  { firstName: 'JEAN', lastName: 'PHILIPPE', type: 'Adult' }
+                ],
+                segments: [
+                  {
+                    airline: 'AV', flightNumber: '0433', origin: 'MEX', destination: 'SAL',
+                    departureAt: '2026-08-22T04:00:00', arrivalAt: '2026-08-22T06:10:00',
+                    cabin: 'Economy', pnr: 'VQ7K2A'
+                  },
+                  {
+                    airline: 'AV', flightNumber: '0385', origin: 'SAL', destination: 'BOG',
+                    departureAt: '2026-08-22T12:05:00', arrivalAt: '2026-08-22T16:00:00',
+                    cabin: 'Economy', bookingReference: 'JH9M5B'
+                  }
+                ],
+                total: 234.59,
+                currency: 'USD',
+                contact: { email: 'support@donitravel.example' }
+              }
+            };
+            const pdf = await buildEticketPdf(ticket);
+            writeFileSync('preview/DONI-Phase33D-premium-eticket.pdf', pdf);
+            console.log(`Generated premium PDF: ${pdf.length} bytes`);
+          }
+          main().catch((e)=>{console.error(e);process.exit(1)});
+          EOF
+          npx tsx /tmp/generate-phase33d.ts
+          test -s preview/DONI-Phase33D-premium-eticket.pdf
+
+      - name: Verify PDF artifact
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('preview/DONI-Phase33D-premium-eticket.pdf')
+          b=p.read_bytes()
+          assert b.startswith(b'%PDF-'), 'Generated file is not a PDF'
+          assert len(b) > 1500, 'Generated premium PDF is unexpectedly small'
+          print('Premium PDF verified:', len(b), 'bytes')
+          PY
+
+      - name: Verify premium template markers
+        run: |
+          set -euo pipefail
+          grep -q 'BOOKING VERIFICATION' services/ticketing/pdf.ts
+          grep -q 'NEED HELP?' services/ticketing/pdf.ts
+          grep -q 'SEGMENT \${index}' services/ticketing/pdf.ts
+          grep -q 's.pnr||s.bookingReference||globalPnr' services/ticketing/pdf.ts
+          grep -q 'E-TICKET / ITINERARY RECEIPT' services/ticketing/pdf.ts
+          echo 'Premium template markers: OK'
+
+      - name: Upload premium e-ticket preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: DONI-Phase33D-premium-eticket-preview
+          path: preview/DONI-Phase33D-premium-eticket.pdf
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Phase 33D complete
+        run: echo 'Phase 33D passed - premium DONI e-ticket generated with per-segment PNRs.'
