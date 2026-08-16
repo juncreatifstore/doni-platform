@@ -31,45 +31,52 @@ jobs:
           import { writeFileSync } from 'node:fs';
           import { buildEticketPdf } from '${{ github.workspace }}/services/ticketing/pdf.ts';
 
-          const ticket = {
-            reference: 'TKT-PHASE33C-PREVIEW',
-            pnr: 'GLOBAL1',
-            ticketNumber: 'TST-33C-000001',
-            issuedAt: new Date('2026-08-16T00:00:00Z'),
-            payload: {
-              passengers: [
-                { firstName: 'JEAN', lastName: 'PHILIPPE', type: 'Adult' }
-              ],
-              segments: [
-                {
-                  airline: 'AV',
-                  flightNumber: '0433',
-                  origin: 'MEX',
-                  destination: 'SAL',
-                  departureAt: '2026-08-22T04:00:00',
-                  arrivalAt: '2026-08-22T06:10:00',
-                  cabin: 'Economy',
-                  pnr: 'VQ7K2A'
-                },
-                {
-                  airline: 'AV',
-                  flightNumber: '0385',
-                  origin: 'SAL',
-                  destination: 'BOG',
-                  departureAt: '2026-08-22T12:05:00',
-                  arrivalAt: '2026-08-22T16:00:00',
-                  cabin: 'Economy',
-                  bookingReference: 'JH9M5B'
-                }
-              ],
-              total: 234.59,
-              currency: 'USD'
-            }
-          };
+          async function main() {
+            const ticket = {
+              reference: 'TKT-PHASE33C-PREVIEW',
+              pnr: 'GLOBAL1',
+              ticketNumber: 'TST-33C-000001',
+              issuedAt: new Date('2026-08-16T00:00:00Z'),
+              payload: {
+                passengers: [
+                  { firstName: 'JEAN', lastName: 'PHILIPPE', type: 'Adult' }
+                ],
+                segments: [
+                  {
+                    airline: 'AV',
+                    flightNumber: '0433',
+                    origin: 'MEX',
+                    destination: 'SAL',
+                    departureAt: '2026-08-22T04:00:00',
+                    arrivalAt: '2026-08-22T06:10:00',
+                    cabin: 'Economy',
+                    pnr: 'VQ7K2A'
+                  },
+                  {
+                    airline: 'AV',
+                    flightNumber: '0385',
+                    origin: 'SAL',
+                    destination: 'BOG',
+                    departureAt: '2026-08-22T12:05:00',
+                    arrivalAt: '2026-08-22T16:00:00',
+                    cabin: 'Economy',
+                    bookingReference: 'JH9M5B'
+                  }
+                ],
+                total: 234.59,
+                currency: 'USD'
+              }
+            };
 
-          const pdf = await buildEticketPdf(ticket);
-          writeFileSync('preview/DONI-Phase33C-redesigned-eticket.pdf', pdf);
-          console.log(`Generated PDF: ${pdf.length} bytes`);
+            const pdf = await buildEticketPdf(ticket);
+            writeFileSync('preview/DONI-Phase33C-redesigned-eticket.pdf', pdf);
+            console.log(`Generated PDF: ${pdf.length} bytes`);
+          }
+
+          main().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
           EOF
           npx tsx /tmp/generate-phase33c.ts
           test -s preview/DONI-Phase33C-redesigned-eticket.pdf
