@@ -53,6 +53,8 @@ export const SETTINGS:SettingDefinition[]=[
  {key:'ocr.model',category:'OCR',label:'Modèle OCR',type:'text',env:'DONI_OCR_MODEL',default:'claude-haiku-4-5-20251001'},
  {key:'app.public_url',category:'General',label:'URL publique DONI',type:'text',env:'PUBLIC_APP_URL'},
  {key:'app.name',category:'General',label:'Nom de la plateforme',type:'text',default:'DONI Travel'},
+ {key:'app.support_email',category:'General',label:'Email assistance client',type:'text',env:'DONI_SUPPORT_EMAIL'},
+ {key:'app.support_phone',category:'General',label:'Téléphone assistance client',type:'text',env:'DONI_SUPPORT_PHONE'},
  {key:'conversation.inactivity_reset_minutes',category:'General',label:'Reset après inactivité (min)',type:'number',default:30,min:5,max:240},
  {key:'conversation.stale_hours',category:'General',label:'Session périmée après (heures)',type:'number',default:72,min:12,max:720},
 ];
