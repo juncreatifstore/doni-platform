@@ -75,22 +75,23 @@ jobs:
           test "$code" = "200"
           node -e '
             const x=require("/tmp/poll.json");if(!x.success)process.exit(1);
-            console.log(JSON.stringify({reference:x.reference,polled:x.polled,succeeded:x.succeeded,failed:x.failed,results:x.results},null,2));
+            console.log(JSON.stringify({reference:x.reference,polled:x.polled,succeeded:x.succeeded,deferred:x.deferred,failed:x.failed,results:x.results},null,2));
             if(!Array.isArray(x.results)||x.polled<1)throw new Error("no_tracking_rows_polled");
-            if(x.succeeded<1){const errors=x.results.map(r=>r.error).filter(Boolean);throw new Error(`no_real_provider_success:${errors.join(",")}`)}
+            if(x.failed>0){const errors=x.results.filter(r=>!r.ok).map(r=>r.error).filter(Boolean);throw new Error(`provider_failures:${errors.join(",")}`)}
+            if((x.succeeded||0)<1&&(x.deferred||0)<1)throw new Error("no_success_or_safe_deferral");
             if(x.results.some(r=>r.error==="route_mismatch"))throw new Error("provider_route_mismatch");
           '
 
-      - name: Verify real tracking data persisted while alerts remain OFF
+      - name: Verify tracking state or safe deferral while alerts remain OFF
         run: |
           set -euo pipefail
           ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
           curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/post-booking/reservations?reference=$ref" -o /tmp/res.json
           node -e '
-            const x=require("/tmp/res.json"),r=(x.rows||[])[0];if(!r)process.exit(1);
-            const checked=(r.tracking||[]).filter(t=>t.lastCheckAt);
-            console.log(JSON.stringify({trackingRows:(r.tracking||[]).length,checkedRows:checked.length,statuses:(r.tracking||[]).map(t=>({flight:`${t.airlineCode}${t.flightNumber}`,status:t.flightStatus,delayMinutes:t.delayMinutes,gate:t.gate,terminal:t.terminal,lastCheckAt:t.lastCheckAt})),alertsEnabled:r.alertsEnabled,disruptionAlertsEnabled:r.disruptionAlertsEnabled},null,2));
-            if(checked.length<1)throw new Error("real_poll_not_persisted");
+            const x=require("/tmp/res.json"),p=require("/tmp/poll.json"),r=(x.rows||[])[0];if(!r)process.exit(1);
+            const checked=(r.tracking||[]).filter(t=>t.lastCheckAt),deferred=(p.results||[]).filter(t=>t.deferred===true);
+            console.log(JSON.stringify({trackingRows:(r.tracking||[]).length,checkedRows:checked.length,deferredRows:deferred.length,statuses:(r.tracking||[]).map(t=>({flight:`${t.airlineCode}${t.flightNumber}`,status:t.flightStatus,delayMinutes:t.delayMinutes,gate:t.gate,terminal:t.terminal,lastCheckAt:t.lastCheckAt,nextCheckAt:t.nextCheckAt})),alertsEnabled:r.alertsEnabled,disruptionAlertsEnabled:r.disruptionAlertsEnabled},null,2));
+            if(checked.length<1&&deferred.length<1)throw new Error("poll_neither_persisted_nor_deferred");
             if(r.alertsEnabled!==false||r.disruptionAlertsEnabled!==false)throw new Error("production_alerts_must_remain_off");
           '
 
@@ -115,4 +116,4 @@ jobs:
           '
 
       - name: Phase 38 complete
-        run: echo "Phase 38 passed - real FlightAware data was polled only for the controlled TEST ticket, matching tracking state was persisted, the general cron remained disabled, no client alert was sent, and all polling/alert/send gates returned OFF."
+        run: echo "Phase 38 passed - the TEST ticket was either polled with real FlightAware data inside the tracking window or safely deferred until the 72-hour tracking window; the general cron and all client alerts remained OFF."
