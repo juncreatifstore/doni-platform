@@ -48,6 +48,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/studio',icon:'✦',label:'Studio de contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/campaigns',icon:'%',label:'Campagnes & Ads',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/partnerships',icon:'◆',label:'Partenariats & Terrain',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/attribution',icon:'⇢',label:'Attribution ventes',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/performance',icon:'↗',label:'Performance',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/objectives',icon:'✓',label:'Objectifs marketing',departments:['MARKETING','MANAGEMENT']},
  ]},
