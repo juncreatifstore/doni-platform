@@ -51,6 +51,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/attribution',icon:'⇢',label:'Attribution ventes',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/performance',icon:'↗',label:'Performance',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/objectives',icon:'✓',label:'Objectifs marketing',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/planning',icon:'▤',label:'Planification & Rapports',departments:['MARKETING','MANAGEMENT']},
  ]},
  {label:'Administration',items:[
   {href:'/users',icon:'♙',label:'Utilisateurs',minimum:'ADMIN'},
