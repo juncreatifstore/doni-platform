@@ -1,0 +1,114 @@
+name: DONI Phase 41 Targeted Automatic Disruption Delivery
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  targeted-disruption-delivery:
+    name: Validate targeted disruption delivery and anti-duplication
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify delivery gates start OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["tracking.test_delivery_enabled","tracking.alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","whatsapp.enabled"]){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(7)}
+          '
+
+      - name: Find issued TEST ticket
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs"),x=require("/tmp/queue.json");
+            const rows=(x.issued||[]).filter(t=>t.pnr==="TST32X");rows.sort((a,b)=>new Date(b.issuedAt)-new Date(a.issuedAt));const t=rows[0];
+            if(!t)throw new Error("issued_test_ticket_not_found");fs.writeFileSync("/tmp/ref",t.reference);console.log(t.reference);
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ref)" >> "$GITHUB_ENV"
+
+      - name: Verify targeted endpoint is locked by default
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/locked.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/flight-ops/deliver-disruptions-test")
+          echo "Locked delivery HTTP $code"; cat /tmp/locked.json
+          test "$code" = "403"
+          node -e 'const x=require("/tmp/locked.json");if(x.error!=="tracking_test_delivery_disabled")process.exit(1)'
+
+      - name: Enable only targeted disruption delivery gates
+        run: |
+          set -euo pipefail
+          for pair in 'tracking.test_delivery_enabled true' 'tracking.alerts_enabled true' 'tracking.auto_send_enabled true' 'whatsapp.enabled true'; do
+            key=$(echo "$pair"|awk '{print $1}'); val=$(echo "$pair"|awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$val")
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+            node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+          done
+
+      - name: Deliver due disruption alerts for TEST ticket only
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/first.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/flight-ops/deliver-disruptions-test")
+          echo "First targeted delivery HTTP $code"; cat /tmp/first.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/first.json");if(!x.success||x.standardAlertsTouched!==0)process.exit(1);
+            if(x.failed>0)throw new Error("targeted_delivery_failed");
+            if(x.dedupe?.sent!=="sent"||x.dedupe?.pending!=="pending"||x.dedupe?.failed!=="pending")throw new Error("dedupe_state_rule_failed");
+            console.log(JSON.stringify({eligible:x.eligible,sent:x.sent,failed:x.failed,remaining:x.remaining,dedupe:x.dedupe},null,2));
+          '
+
+      - name: Repeat delivery to prove no duplicate send
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/second.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/flight-ops/deliver-disruptions-test")
+          echo "Second targeted delivery HTTP $code"; cat /tmp/second.json
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/second.json");if(!x.success||x.sent!==0||x.failed!==0||x.standardAlertsTouched!==0)throw new Error("duplicate_delivery_detected")'
+
+      - name: Cleanup delivery gates
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in tracking.test_delivery_enabled tracking.alerts_enabled tracking.auto_send_enabled tracking.standard_alerts_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+
+      - name: Verify final safety state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["tracking.test_delivery_enabled","tracking.alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","whatsapp.enabled"]){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(1)}
+          '
+
+      - name: Phase 41 complete
+        run: echo "Phase 41 passed - disruption delivery was restricted to the TEST ticket, standard reminders were excluded, delivered alerts cannot be requeued, a repeated delivery produced zero duplicate sends, and all delivery gates returned OFF."
