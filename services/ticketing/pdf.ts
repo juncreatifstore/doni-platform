@@ -1,22 +1,23 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from 'pdf-lib';
+import QRCode from 'qrcode';
 import {normalizeTicketPayload, type TicketPayload, type TicketSegment} from './types';
 
+export type EticketBranding={supportEmail?:string;supportPhone?:string;verificationUrl?:string;appName?:string};
 const NAVY=rgb(.015,.12,.27), NAVY2=rgb(.025,.20,.38), BLUE=rgb(.05,.42,.67), SKY=rgb(.83,.93,.98), LIGHT=rgb(.965,.978,.99), TEXT=rgb(.06,.11,.19), MUTED=rgb(.34,.40,.48), BORDER=rgb(.78,.85,.91), WHITE=rgb(1,1,1);
 const fmtDate=(v?:string)=>{if(!v)return '-';const d=new Date(v);if(Number.isNaN(d.getTime()))return v.slice(0,10);return d.toISOString().slice(0,10)};
 const fmtTime=(v?:string)=>{if(!v)return '-';const d=new Date(v);if(Number.isNaN(d.getTime()))return v.slice(11,16)||v;return d.toISOString().slice(11,16)};
 const clean=(v:unknown,fallback='-')=>{const s=String(v??'').trim();return s||fallback};
 
-export async function buildEticketPdf(ticket:{reference:string;pnr:string|null;ticketNumber:string|null;issuedAt:Date|null;payload:unknown}){
+export async function buildEticketPdf(ticket:{reference:string;pnr:string|null;ticketNumber:string|null;issuedAt:Date|null;payload:unknown},branding:EticketBranding={}){
   const payload=normalizeTicketPayload(ticket.payload) as TicketPayload;
   const pdf=await PDFDocument.create();
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const page=pdf.addPage([595.28,841.89]);
   const draw=(s:string,x:number,y:number,size=10,b=false,color=TEXT)=>page.drawText(s,{x,y,size,font:b?bold:regular,color});
+  const appName=clean(branding.appName,'DONI Travel');
 
-  drawPremiumHeader(page,bold);
-
-  // Booking summary panel
+  drawPremiumHeader(page,bold,appName);
   roundedPanel(page,32,646,531,90,LIGHT,BORDER,1);
   infoCell(page,regular,bold,48,703,'REFERENCE',ticket.reference,'R');
   infoCell(page,regular,bold,315,703,'TICKET',ticket.ticketNumber||'-','T');
@@ -27,112 +28,43 @@ export async function buildEticketPdf(ticket:{reference:string;pnr:string|null;t
   let y=617;
   drawSectionTitle(page,bold,'PASSENGER',y,'P'); y-=31;
   const passengers=payload.passengers||[];
-  if(passengers.length===0){
-    roundedPanel(page,48,y-5,499,28,LIGHT,BORDER,.6); draw('No passenger data',62,y+4,9,false,MUTED); y-=36;
-  } else {
-    for(const [i,p] of passengers.entries()){
-      roundedPanel(page,48,y-5,499,30,LIGHT,BORDER,.6);
-      draw(`${i+1}. ${(p.firstName||'').toUpperCase()} ${(p.lastName||'').toUpperCase()}`,64,y+4,10,true,TEXT);
-      draw(clean(p.type,'Adult'),418,y+4,9,false,MUTED); y-=38;
-    }
-  }
+  if(passengers.length===0){roundedPanel(page,48,y-5,499,28,LIGHT,BORDER,.6);draw('No passenger data',62,y+4,9,false,MUTED);y-=36;}
+  else for(const [i,p] of passengers.entries()){roundedPanel(page,48,y-5,499,30,LIGHT,BORDER,.6);draw(`${i+1}. ${(p.firstName||'').toUpperCase()} ${(p.lastName||'').toUpperCase()}`,64,y+4,10,true,TEXT);draw(clean(p.type,'Adult'),418,y+4,9,false,MUTED);y-=38;}
 
   y-=2; drawSectionTitle(page,bold,'ITINERARY',y,'F'); y-=22;
-  for(const [i,s] of (payload.segments||[]).entries()){
-    y=drawPremiumSegment(page,regular,bold,s,i+1,y,ticket.pnr||undefined);
-  }
+  for(const [i,s] of (payload.segments||[]).entries())y=drawPremiumSegment(page,regular,bold,s,i+1,y,ticket.pnr||undefined);
 
-  if(payload.total){
-    y-=2;
-    roundedPanel(page,42,y-50,511,52,WHITE,NAVY,1.2);
-    circleBadge(page,bold,68,y-24,'$',NAVY);
-    draw('TOTAL',94,y-18,9,true,MUTED);
-    draw(`${payload.total} ${payload.currency||''}`,160,y-31,24,true,NAVY);
-    y-=64;
-  }
+  if(payload.total){y-=2;roundedPanel(page,42,y-50,511,52,WHITE,NAVY,1.2);circleBadge(page,bold,68,y-24,'$',NAVY);draw('TOTAL',94,y-18,9,true,MUTED);draw(`${payload.total} ${payload.currency||''}`,160,y-31,24,true,NAVY);y-=64;}
 
-  // Lower informational cards
-  const infoY=Math.max(104,y-72);
-  roundedPanel(page,42,infoY,245,64,LIGHT,BORDER,.7);
-  draw('BOOKING VERIFICATION',58,infoY+45,9,true,NAVY);
-  draw('Use your DONI reference to verify',58,infoY+27,8,false,MUTED);
-  draw(ticket.reference,58,infoY+12,8,true,TEXT);
+  const infoY=Math.max(102,y-78);
+  roundedPanel(page,42,infoY,245,72,LIGHT,BORDER,.7);
+  draw('BOOKING VERIFICATION',58,infoY+53,9,true,NAVY);
+  if(branding.verificationUrl){
+    try{const qr=await QRCode.toBuffer(branding.verificationUrl,{type:'png',width:180,margin:1,errorCorrectionLevel:'M'});const img=await pdf.embedPng(qr);page.drawImage(img,{x:58,y:infoY+10,width:40,height:40});draw('Scan to open your secure',108,infoY+35,7.5,false,MUTED);draw('e-ticket verification link',108,infoY+23,7.5,false,MUTED);draw(ticket.reference,108,infoY+10,7.5,true,TEXT);}catch{draw('Use your DONI reference to verify',58,infoY+31,8,false,MUTED);draw(ticket.reference,58,infoY+15,8,true,TEXT);}
+  }else{draw('Use your DONI reference to verify',58,infoY+31,8,false,MUTED);draw(ticket.reference,58,infoY+15,8,true,TEXT);}
 
-  roundedPanel(page,308,infoY,245,64,LIGHT,BORDER,.7);
-  draw('NEED HELP?',324,infoY+45,9,true,NAVY);
-  const contact=(payload as any).contact||{};
-  const helpLine=contact.email?String(contact.email):contact.phone?String(contact.phone):'Contact DONI Travel support';
-  draw(helpLine,324,infoY+27,8,false,TEXT);
-  draw('Keep this e-ticket and your travel documents.',324,infoY+12,7,false,MUTED);
+  roundedPanel(page,308,infoY,245,72,LIGHT,BORDER,.7);
+  draw('NEED HELP?',324,infoY+53,9,true,NAVY);
+  let helpY=infoY+35;
+  if(branding.supportEmail){draw(branding.supportEmail,324,helpY,8,false,TEXT);helpY-=13;}
+  if(branding.supportPhone){draw(branding.supportPhone,324,helpY,8,false,TEXT);helpY-=13;}
+  if(!branding.supportEmail&&!branding.supportPhone)draw('Contact DONI Travel support',324,helpY,8,false,TEXT);
+  draw('Keep this e-ticket and your travel documents.',324,infoY+10,7,false,MUTED);
 
-  page.drawLine({start:{x:44,y:83},end:{x:268,y:83},thickness:.7,color:BORDER});
-  page.drawLine({start:{x:327,y:83},end:{x:551,y:83},thickness:.7,color:BORDER});
-  draw('AIR',281,79,7,true,BLUE);
-  draw('Please verify names, dates and travel documents before departure.',106,62,8,false,MUTED);
-  draw('Generated by ',220,43,8,false,MUTED); draw('DONI Travel',271,43,8,true,NAVY);
-  page.drawRectangle({x:0,y:0,width:595.28,height:18,color:NAVY});
-  page.drawRectangle({x:0,y:18,width:595.28,height:2,color:BLUE});
+  page.drawLine({start:{x:44,y:83},end:{x:268,y:83},thickness:.7,color:BORDER});page.drawLine({start:{x:327,y:83},end:{x:551,y:83},thickness:.7,color:BORDER});draw('AIR',281,79,7,true,BLUE);
+  draw('Please verify names, dates and travel documents before departure.',106,62,8,false,MUTED);draw('Generated by ',220,43,8,false,MUTED);draw(appName,271,43,8,true,NAVY);
+  page.drawRectangle({x:0,y:0,width:595.28,height:18,color:NAVY});page.drawRectangle({x:0,y:18,width:595.28,height:2,color:BLUE});
   return Buffer.from(await pdf.save());
 }
 
-function drawPremiumHeader(page:PDFPage,bold:PDFFont){
-  page.drawRectangle({x:0,y:744,width:595.28,height:98,color:NAVY});
-  page.drawRectangle({x:0,y:742,width:595.28,height:5,color:BLUE});
-  page.drawRectangle({x:365,y:744,width:230,height:98,color:NAVY2,opacity:.42});
-  page.drawLine({start:{x:378,y:759},end:{x:548,y:817},thickness:2.4,color:BLUE,opacity:.72});
-  page.drawText('DONI TRAVEL',{x:40,y:798,size:26,font:bold,color:WHITE});
-  page.drawText('E-TICKET / ITINERARY RECEIPT',{x:40,y:774,size:11,font:bold,color:SKY});
-  page.drawLine({start:{x:40,y:766},end:{x:112,y:766},thickness:2,color:BLUE});
-  circleBadge(page,bold,548,804,'>',WHITE,NAVY2);
-}
-
-function infoCell(page:PDFPage,regular:PDFFont,bold:PDFFont,x:number,y:number,label:string,value:string,badge:string){
-  circleBadge(page,bold,x+12,y-2,badge,NAVY);
-  page.drawText(label,{x:x+32,y:y+3,size:7,font:bold,color:MUTED});
-  const shown=value.length>30?`${value.slice(0,30)}...`:value;
-  page.drawText(shown,{x:x+32,y:y-14,size:10.5,font:bold,color:TEXT});
-}
-
-function drawSectionTitle(page:PDFPage,bold:PDFFont,title:string,y:number,badge:string){
-  circleBadge(page,bold,52,y+2,badge,NAVY);
-  page.drawText(title,{x:72,y:y-2,size:12,font:bold,color:NAVY});
-  page.drawLine({start:{x:155,y:y+1},end:{x:551,y:y+1},thickness:1,color:NAVY2});
-}
-
+function drawPremiumHeader(page:PDFPage,bold:PDFFont,appName:string){page.drawRectangle({x:0,y:744,width:595.28,height:98,color:NAVY});page.drawRectangle({x:0,y:742,width:595.28,height:5,color:BLUE});page.drawRectangle({x:365,y:744,width:230,height:98,color:NAVY2,opacity:.42});page.drawLine({start:{x:378,y:759},end:{x:548,y:817},thickness:2.4,color:BLUE,opacity:.72});page.drawText(appName.toUpperCase(),{x:40,y:798,size:26,font:bold,color:WHITE});page.drawText('E-TICKET / ITINERARY RECEIPT',{x:40,y:774,size:11,font:bold,color:SKY});page.drawLine({start:{x:40,y:766},end:{x:112,y:766},thickness:2,color:BLUE});circleBadge(page,bold,548,804,'>',WHITE,NAVY2);}
+function infoCell(page:PDFPage,regular:PDFFont,bold:PDFFont,x:number,y:number,label:string,value:string,badge:string){circleBadge(page,bold,x+12,y-2,badge,NAVY);page.drawText(label,{x:x+32,y:y+3,size:7,font:bold,color:MUTED});const shown=value.length>30?`${value.slice(0,30)}...`:value;page.drawText(shown,{x:x+32,y:y-14,size:10.5,font:bold,color:TEXT});}
+function drawSectionTitle(page:PDFPage,bold:PDFFont,title:string,y:number,badge:string){circleBadge(page,bold,52,y+2,badge,NAVY);page.drawText(title,{x:72,y:y-2,size:12,font:bold,color:NAVY});page.drawLine({start:{x:155,y:y+1},end:{x:551,y:y+1},thickness:1,color:NAVY2});}
 function drawPremiumSegment(page:PDFPage,regular:PDFFont,bold:PDFFont,s:TicketSegment,index:number,y:number,globalPnr?:string){
-  const x=42,w=511,h=96,top=y;
-  const pnr=clean(s.pnr||s.bookingReference||globalPnr).toUpperCase();
-  roundedPanel(page,x,top-h,w,h,WHITE,BORDER,.9);
-  page.drawRectangle({x,y:top-23,width:98,height:23,color:NAVY});
-  page.drawText(`SEGMENT ${index}`,{x:x+15,y:top-16,size:9,font:bold,color:WHITE});
-  page.drawText('PNR',{x:x+399,y:top-15,size:7,font:bold,color:MUTED});
-  page.drawText(pnr,{x:x+430,y:top-16,size:10,font:bold,color:NAVY});
-  page.drawLine({start:{x:x+1,y:top-25},end:{x:x+w-1,y:top-25},thickness:.7,color:BORDER});
-
-  const airline=`${clean(s.airline,'')} ${clean(s.flightNumber,'')}`.trim()||'Flight';
-  page.drawText(airline,{x:x+18,y:top-51,size:11,font:bold,color:NAVY});
-  page.drawText(`${clean(s.origin,'---')}  ->  ${clean(s.destination,'---')}`,{x:x+124,y:top-51,size:15,font:bold,color:TEXT});
-  page.drawText(clean(s.cabin,'Economy'),{x:x+430,y:top-51,size:9,font:bold,color:NAVY});
-
-  page.drawText('DEPART',{x:x+124,y:top-68,size:7,font:bold,color:MUTED});
-  page.drawText(fmtDate(s.departureAt),{x:x+124,y:top-81,size:8,font:regular,color:TEXT});
-  page.drawText(fmtTime(s.departureAt),{x:x+197,y:top-81,size:10,font:bold,color:NAVY});
-  page.drawText('>',{x:x+260,y:top-79,size:12,font:bold,color:BLUE});
-  page.drawText('ARRIVE',{x:x+292,y:top-68,size:7,font:bold,color:MUTED});
-  page.drawText(fmtDate(s.arrivalAt),{x:x+292,y:top-81,size:8,font:regular,color:TEXT});
-  page.drawText(fmtTime(s.arrivalAt),{x:x+365,y:top-81,size:10,font:bold,color:NAVY});
-  page.drawText(`PNR ${pnr}`,{x:x+18,y:top-82,size:7.5,font:bold,color:BLUE});
-  return top-h-10;
+  const x=42,w=511,h=104,top=y,pnr=clean(s.pnr||s.bookingReference||globalPnr).toUpperCase();roundedPanel(page,x,top-h,w,h,WHITE,BORDER,.9);page.drawRectangle({x,y:top-23,width:98,height:23,color:NAVY});page.drawText(`SEGMENT ${index}`,{x:x+15,y:top-16,size:9,font:bold,color:WHITE});page.drawText('PNR',{x:x+399,y:top-15,size:7,font:bold,color:MUTED});page.drawText(pnr,{x:x+430,y:top-16,size:10,font:bold,color:NAVY});page.drawLine({start:{x:x+1,y:top-25},end:{x:x+w-1,y:top-25},thickness:.7,color:BORDER});
+  const airline=`${clean(s.airline,'')} ${clean(s.flightNumber,'')}`.trim()||'Flight';page.drawText(airline,{x:x+18,y:top-51,size:11,font:bold,color:NAVY});page.drawText(`${clean(s.origin,'---')}  ->  ${clean(s.destination,'---')}`,{x:x+124,y:top-51,size:15,font:bold,color:TEXT});page.drawText(clean(s.cabin,'Economy'),{x:x+430,y:top-51,size:9,font:bold,color:NAVY});
+  const originName=clean(s.originName,'');const destinationName=clean(s.destinationName,'');if(originName||destinationName){page.drawText(originName,{x:x+124,y:top-64,size:6.8,font:regular,color:MUTED});page.drawText(destinationName,{x:x+256,y:top-64,size:6.8,font:regular,color:MUTED});}
+  page.drawText('DEPART',{x:x+124,y:top-78,size:7,font:bold,color:MUTED});page.drawText(fmtDate(s.departureAt),{x:x+124,y:top-92,size:8,font:regular,color:TEXT});page.drawText(fmtTime(s.departureAt),{x:x+197,y:top-92,size:10,font:bold,color:NAVY});page.drawText('>',{x:x+260,y:top-90,size:12,font:bold,color:BLUE});page.drawText('ARRIVE',{x:x+292,y:top-78,size:7,font:bold,color:MUTED});page.drawText(fmtDate(s.arrivalAt),{x:x+292,y:top-92,size:8,font:regular,color:TEXT});page.drawText(fmtTime(s.arrivalAt),{x:x+365,y:top-92,size:10,font:bold,color:NAVY});page.drawText(`PNR ${pnr}`,{x:x+18,y:top-93,size:7.5,font:bold,color:BLUE});return top-h-10;
 }
-
-function roundedPanel(page:PDFPage,x:number,y:number,width:number,height:number,color:any,borderColor:any,borderWidth:number){
-  // pdf-lib has no native rounded rectangle; layered rectangles retain the premium card treatment.
-  page.drawRectangle({x,y,width,height,color,borderColor,borderWidth});
-}
-
-function circleBadge(page:PDFPage,bold:PDFFont,x:number,y:number,text:string,color:any,bg?:any){
-  page.drawCircle({x,y,size:11,color:bg||color,borderColor:bg?color:undefined,borderWidth:bg?1:0});
-  const c=bg?color:WHITE;
-  const size=text.length>1?6:8;
-  page.drawText(text,{x:x-(text.length>1?6:2.5),y:y-3,size,font:bold,color:c});
-}
+function roundedPanel(page:PDFPage,x:number,y:number,width:number,height:number,color:any,borderColor:any,borderWidth:number){page.drawRectangle({x,y,width,height,color,borderColor,borderWidth});}
+function circleBadge(page:PDFPage,bold:PDFFont,x:number,y:number,text:string,color:any,bg?:any){page.drawCircle({x,y,size:11,color:bg||color,borderColor:bg?color:undefined,borderWidth:bg?1:0});const c=bg?color:WHITE;const size=text.length>1?6:8;page.drawText(text,{x:x-(text.length>1?6:2.5),y:y-3,size,font:bold,color:c});}
