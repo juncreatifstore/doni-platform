@@ -16,6 +16,7 @@ export const SETTINGS:SettingDefinition[]=[
  {key:'flights.manual_inventory_enabled',category:'Flights',label:'Inventaire manuel actif',type:'boolean',env:'MANUAL_INVENTORY_ENABLED',default:true},
  {key:'tracking.alerts_enabled',category:'Flight Tracking',label:'Alertes automatiques actives',type:'boolean',env:'FLIGHT_ALERTS_ENABLED',default:false},
  {key:'tracking.disruption_alerts_enabled',category:'Flight Tracking',label:'Alertes retard / annulation / déroutement',type:'boolean',env:'FLIGHT_DISRUPTION_ALERTS_ENABLED',default:false},
+ {key:'tracking.test_alert_enabled',category:'Flight Tracking',label:'Test contrôlé des alertes',type:'boolean',default:false,description:'Autorise uniquement l’envoi d’une alerte de test par SUPER_ADMIN. Laisser désactivé hors test.'},
  {key:'tracking.oag_testing_enabled',category:'Flight Tracking',label:'OAG test/ops actif',type:'boolean',env:'OAG_TESTING_ENABLED',default:false},
  {key:'tracking.oag_secondary_api_key',category:'Flight Tracking',label:'OAG secondary key',type:'secret',env:'OAG_SECONDARY_API_KEY'},
  {key:'tracking.checkin_assistance_price',category:'Flight Tracking',label:'Prix assistance check-in (USD)',type:'number',default:5,min:0,max:100},
