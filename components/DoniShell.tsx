@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { UserRole } from '@prisma/client';
 import { LogoutButton } from './LogoutButton';
 import { NotificationBell } from './workspace/NotificationBell';
+import { GlobalSearch } from './workspace/GlobalSearch';
 import { hasRole } from '@/lib/auth/permissions';
 import { departmentLabel, type Department } from '@/lib/auth/departments';
 
@@ -70,7 +71,7 @@ export function DoniShell({children,title,active,user}:{children:ReactNode;title
    <div className="sidebarProfile"><div className="profileAvatar">{initials(user)}</div><div className="profileCopy"><strong>{user.fullName||user.username}</strong><span>{roleLabel(user.role)} · {dept}</span></div></div>
   </aside>
   <main className="main">
-   <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
+   <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><GlobalSearch/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
    <div className="content">{children}</div>
   </main>
  </div>
