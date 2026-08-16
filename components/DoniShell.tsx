@@ -42,7 +42,10 @@ const groups:NavGroup[]=[
   {href:'/finance',icon:'◫',label:'Centre financier',departments:['FINANCE','OPERATIONS','MANAGEMENT']},
  ]},
  {label:'Marketing',items:[
-  {href:'/marketing',icon:'◇',label:'Centre marketing',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing',icon:'◇',label:'Dashboard marketing',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/leads',icon:'◎',label:'Leads & Prospects',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/content',icon:'▦',label:'Calendrier contenu',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/objectives',icon:'↗',label:'Objectifs marketing',departments:['MARKETING','MANAGEMENT']},
  ]},
  {label:'Administration',items:[
   {href:'/users',icon:'♙',label:'Utilisateurs',minimum:'ADMIN'},
