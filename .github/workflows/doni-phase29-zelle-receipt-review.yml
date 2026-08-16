@@ -1,0 +1,131 @@
+name: DONI Phase 29 Zelle Receipt Review
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      anchor_text:
+        description: Prior inbound message used to identify the WhatsApp test conversation
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  zelle-receipt-review:
+    name: Controlled receipt intake pending human review
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      ANCHOR_TEXT: ${{ inputs.anchor_text }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"; test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Validate strict safety gates
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            for(const k of ["payments.create_enabled","payments.manual_create_enabled","payments.manual_receipt_ocr_enabled","ticketing.write_enabled","payments.refunds_execute_enabled"]){console.log(`${k}: ${String(m.get(k)?.value)}`)}
+            if(m.get("payments.create_enabled")?.value===true||m.get("ticketing.write_enabled")?.value===true||m.get("payments.refunds_execute_enabled")?.value===true){console.error("Unsafe transaction/ticketing gate enabled");process.exit(1)}
+          '
+
+      - name: Find Phase 28 WhatsApp conversation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=200" -o /tmp/conversations.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/conversations.json","utf8"));for(const c of x.conversations||[])if(c.id)console.log(c.id)' > /tmp/ids.txt
+          : > /tmp/found_id.txt
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const a=process.env.ANCHOR_TEXT;const ms=x.conversation?.messages||[];process.exit(ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim()===a.trim())?0:1)'; then echo "$id" >/tmp/found_id.txt; break; fi
+          done < /tmp/ids.txt
+          test -s /tmp/found_id.txt || (echo "Could not find WhatsApp test conversation" && exit 1)
+          echo "CONVERSATION_ID=$(cat /tmp/found_id.txt)" >> "$GITHUB_ENV"
+
+      - name: Require pending Zelle reference from Phase 28
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const c=x.conversation||{};const s=c.state||{};
+            const ok=c.currentSegment==="segment_payment_confirmation"&&s.payment_manual===true&&s.payment_method==="zelle"&&s.payment_provider==="manual_zelle"&&String(s.payment_reference||"").startsWith("PAY-");
+            if(!ok){console.error("PHASE28_PENDING_ZELLE_REFERENCE_NOT_FOUND");process.exit(5)}
+            fs.writeFileSync("/tmp/payment_ref.txt",String(s.payment_reference));
+            console.log(JSON.stringify({segment:c.currentSegment,paymentMethod:s.payment_method,paymentProvider:s.payment_provider,paymentReferencePresent:true},null,2));
+          '
+          echo "PAYMENT_REF=$(cat /tmp/payment_ref.txt)" >> "$GITHUB_ENV"
+
+      - name: Force OCR OFF and enable WhatsApp only
+        run: |
+          set -euo pipefail
+          for item in 'payments.manual_receipt_ocr_enabled false' 'payments.manual_create_enabled false' 'whatsapp.enabled true'; do
+            key=$(echo "$item"|awk '{print $1}'); value=$(echo "$item"|awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$value")
+            code=$(curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data "$body" -o /tmp/setting.json -w '%{http_code}' "$BASE_URL/api/settings")
+            echo "$key -> HTTP $code"; test "$code" = "200"
+          done
+
+      - name: Wait for test receipt pending human review
+        run: |
+          set -euo pipefail
+          echo "Send ONE non-sensitive test image in WhatsApp now. It can simply say TEST RECEIPT - NOT PAID. Do not send a real payment receipt."
+          found=0
+          for attempt in $(seq 1 72); do
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$CONVERSATION_ID" -o /tmp/detail.json
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/manual-payments" -o /tmp/reviews.json
+            if node -e '
+              const fs=require("fs");const d=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const r=JSON.parse(fs.readFileSync("/tmp/reviews.json","utf8"));const c=d.conversation||{};const s=c.state||{};const rows=r.rows||[];const row=rows.find(x=>x.payment?.reference===process.env.PAYMENT_REF&&x.hasReceipt===true);
+              const ok=Boolean(row)&&row.status==="PENDING"&&row.payment?.status==="PENDING"&&c.currentSegment==="segment_payment_confirmation"&&s.manual_receipt_received===true;
+              if(ok)console.log(JSON.stringify({receiptStored:true,reviewStatus:row.status,paymentStatus:row.payment.status,ocrStatus:row.ocrStatus,comparisonStatus:row.comparisonStatus||null,segment:c.currentSegment,autoPaid:false},null,2));
+              if(row?.payment?.status==="PAID"||row?.status==="APPROVED"){console.error("SAFETY FAILURE: receipt was automatically approved/paid");process.exit(7)}
+              process.exit(ok?0:1)
+            '; then found=1; break; fi
+            sleep 5
+          done
+          if [ "$found" != "1" ]; then echo "Phase 29 timeout waiting for receipt review."; exit 1; fi
+
+      - name: Re-check payment remains pending and ticketing gates OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/manual-payments" -o /tmp/reviews-final.json
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings-final.json
+          node -e '
+            const fs=require("fs");const r=JSON.parse(fs.readFileSync("/tmp/reviews-final.json","utf8"));const row=(r.rows||[]).find(x=>x.payment?.reference===process.env.PAYMENT_REF&&x.hasReceipt===true);if(!row||row.status!=="PENDING"||row.payment?.status!=="PENDING")process.exit(1);
+            const x=JSON.parse(fs.readFileSync("/tmp/settings-final.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));if(m.get("payments.create_enabled")?.value===true||m.get("ticketing.write_enabled")?.value===true||m.get("payments.refunds_execute_enabled")?.value===true)process.exit(1);
+            console.log("Phase 29 verified: receipt is pending human review; payment remains PENDING; no automatic approval.");
+          '
+
+      - name: Safety cleanup - force WhatsApp and OCR OFF
+        if: always()
+        run: |
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in whatsapp.enabled payments.manual_receipt_ocr_enabled payments.manual_create_enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -X PUT -H 'content-type: application/json' --data "$body" "$BASE_URL/api/settings" -o /tmp/cleanup.json || true
+            done
+          fi
+          echo "Safety cleanup executed: WhatsApp OFF, receipt OCR OFF, manual payment creation OFF requested."
+
+      - name: Phase 29 complete
+        if: success()
+        run: echo "Phase 29 passed - test receipt stored for human review while payment remained PENDING and no automatic approval occurred."
