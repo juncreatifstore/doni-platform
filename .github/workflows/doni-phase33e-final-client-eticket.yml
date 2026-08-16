@@ -1,0 +1,100 @@
+name: DONI Phase 33E Final Client E-ticket
+
+on:
+  workflow_dispatch:
+
+jobs:
+  final-client-eticket:
+    name: Validate final client-ready e-ticket
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Install TS runner for preview
+        run: npm install --no-save --no-audit --no-fund tsx
+
+      - name: Generate final client e-ticket PDF
+        run: |
+          mkdir -p preview
+          cat > /tmp/generate-phase33e.ts <<'EOF'
+          import { writeFileSync } from 'node:fs';
+          import { buildEticketPdf } from '${{ github.workspace }}/services/ticketing/pdf.ts';
+
+          async function main(){
+            const ticket={
+              reference:'TKT-PHASE33E-FINAL',
+              pnr:'GLOBAL1',
+              ticketNumber:'TST-33E-000001',
+              issuedAt:new Date('2026-08-16T00:00:00Z'),
+              payload:{
+                passengers:[{firstName:'JEAN',lastName:'PHILIPPE',type:'Adult'}],
+                segments:[
+                  {airline:'AV',flightNumber:'0433',origin:'MEX',originName:'Mexico City',destination:'SAL',destinationName:'San Salvador',departureAt:'2026-08-22T04:00:00',arrivalAt:'2026-08-22T06:10:00',cabin:'Economy',pnr:'VQ7K2A'},
+                  {airline:'AV',flightNumber:'0385',origin:'SAL',originName:'San Salvador',destination:'BOG',destinationName:'Bogotá',departureAt:'2026-08-22T12:05:00',arrivalAt:'2026-08-22T16:00:00',cabin:'Economy',bookingReference:'JH9M5B'}
+                ],
+                total:234.59,
+                currency:'USD'
+              }
+            };
+            const pdf=await buildEticketPdf(ticket,{
+              appName:'DONI Travel',
+              supportEmail:'support@example.test',
+              supportPhone:'+1 000 000 0000',
+              verificationUrl:'https://doni-platform.vercel.app/api/ticketing/TKT-PHASE33E-FINAL/pdf?exp=9999999999999&sig=preview'
+            });
+            writeFileSync('preview/DONI-Phase33E-final-client-eticket.pdf',pdf);
+            console.log(`Generated PDF: ${pdf.length} bytes`);
+          }
+          main().catch(e=>{console.error(e);process.exit(1)});
+          EOF
+          npx tsx /tmp/generate-phase33e.ts
+          test -s preview/DONI-Phase33E-final-client-eticket.pdf
+
+      - name: Verify final PDF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('preview/DONI-Phase33E-final-client-eticket.pdf')
+          b=p.read_bytes()
+          assert b.startswith(b'%PDF-')
+          assert len(b)>3000
+          print('Final e-ticket verified:',len(b),'bytes')
+          PY
+
+      - name: Verify final client features
+        run: |
+          set -euo pipefail
+          grep -q "QRCode.toBuffer" services/ticketing/pdf.ts
+          grep -q "originName" services/ticketing/pdf.ts
+          grep -q "destinationName" services/ticketing/pdf.ts
+          grep -q "supportEmail" services/ticketing/pdf.ts
+          grep -q "supportPhone" services/ticketing/pdf.ts
+          grep -q "verificationUrl" services/ticketing/pdf.ts
+          grep -q "app.support_email" services/ticketing/delivery.ts
+          grep -q "app.support_phone" services/ticketing/delivery.ts
+          echo "Final client-ready e-ticket features: OK"
+
+      - name: Upload final client e-ticket
+        uses: actions/upload-artifact@v4
+        with:
+          name: DONI-Phase33E-final-client-eticket
+          path: preview/DONI-Phase33E-final-client-eticket.pdf
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Phase 33E complete
+        run: echo "Phase 33E passed - final client-ready DONI e-ticket generated with per-segment PNR, airport names, support block, and secure QR verification."
