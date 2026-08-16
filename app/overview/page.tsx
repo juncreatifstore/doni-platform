@@ -1,36 +1,67 @@
 import Link from 'next/link';
 import { DoniShell } from '@/components/DoniShell';
 import { requirePageUser } from '@/lib/auth/session';
-import { hasRole } from '@/lib/auth/permissions';
-import { getOverviewMetrics } from '@/services/analytics/dashboard';
+import { departmentLabel, type Department } from '@/lib/auth/departments';
+import { getOverviewMetrics, getFinanceMetrics, getFlowMetrics } from '@/services/analytics/dashboard';
+import { getWorkspaceMetrics } from '@/services/analytics/workspace';
 import { MetricCard } from '@/components/analytics/MetricCard';
 import { AutoRefresh } from '@/components/analytics/AutoRefresh';
 export const dynamic='force-dynamic';
 function money(n:number,c:string){try{return new Intl.NumberFormat('fr-FR',{style:'currency',currency:c,maximumFractionDigits:2}).format(n)}catch{return `${n.toFixed(2)} ${c}`}}
+type Quick={href:string;icon:string;label:string;note:string};
+type Priority={label:string;value:number|string;href:string;tone:'urgent'|'attention'|'clear';note?:string};
 export default async function Overview(){
  const user=await requirePageUser('AGENT');
- const d=await getOverviewMetrics();
- const priorities=[
-  {label:'Conversations à reprendre',value:d.agentRequired,href:'/live-ops',tone:d.agentRequired?'urgent':'clear'},
-  {label:'Paiements à vérifier',value:d.pendingPayments,href:'/manual-payments',tone:d.pendingPayments?'attention':'clear'},
-  {label:'Billets à émettre',value:d.ticketsToIssue,href:'/ticketing',tone:d.ticketsToIssue?'attention':'clear'},
-  {label:'Incidents opérationnels',value:d.stalled+d.deliveryFailures,href:'/flight-ops',tone:d.stalled+d.deliveryFailures?'urgent':'clear'},
- ];
- const quick=[
-  {href:'/live-ops',icon:'◉',label:'Ouvrir Live Ops',note:'Conversations et interventions'},
-  {href:'/reservations',icon:'✈',label:'Réservations',note:'Consulter les dossiers clients'},
-  {href:'/ticketing',icon:'▣',label:'Ticketing',note:'Émission et suivi des billets'},
-  {href:'/customers',icon:'◎',label:'Clients / CRM',note:'Historique et dossiers clients'},
-  ...(hasRole(user.role,'ADMIN')?[{href:'/finance',icon:'$',label:'Finance',note:'Encaissements et contrôle'}]:[]),
- ];
+ const [d,w,f,flow]=await Promise.all([getOverviewMetrics(),getWorkspaceMetrics(),getFinanceMetrics(),getFlowMetrics()]);
+ const dept:Department=user.role==='AGENT'?(user.department||'OPERATIONS'):'MANAGEMENT';
+ const pendingFinance=f.statusGroups.find(x=>x.status==='PENDING')?.count||0;
+ const failedFinance=(f.statusGroups.find(x=>x.status==='FAILED')?.count||0)+(f.statusGroups.find(x=>x.status==='EXPIRED')?.count||0);
+ const total7d=f.currencyTotals.reduce((n,x)=>n+x.amount,0);
+ let title='Centre opérationnel',description='Vue transversale des ventes, paiements, service client et opérations DONI.';
+ let priorities:Priority[]=[];let quick:Quick[]=[];let metrics:Array<{label:string;value:number|string;note?:string;tone?:'good'|'warn'|'bad'|'default'}>=[];
+ if(dept==='RESERVATIONS'){
+  title='Bureau Réservations';description='Suivez les demandes de voyage, dossiers clients et réservations prêtes à avancer.';
+  priorities=[{label:'Conversations à reprendre',value:d.agentRequired,href:'/live-ops',tone:d.agentRequired?'urgent':'clear'},{label:'Dossiers actifs',value:d.active,href:'/reservations',tone:'clear'},{label:'Paiements en attente',value:d.pendingPayments,href:'/reservations',tone:d.pendingPayments?'attention':'clear'},{label:'Billets à transmettre',value:d.ticketsToIssue,href:'/ticketing',tone:d.ticketsToIssue?'attention':'clear'}];
+  metrics=[{label:'Clients CRM',value:w.customers,note:'Base clients DONI'},{label:'Conversations actives',value:d.active,note:`${d.agentRequired} requièrent un agent`,tone:d.agentRequired?'warn':'good'},{label:'Paiements / 24 h',value:d.paid24h,note:'Réservations payées',tone:'good'},{label:'Billets émis / 24 h',value:d.issued24h,note:'Dossiers finalisés',tone:'good'}];
+  quick=[{href:'/reservations',icon:'✈',label:'Réservations',note:'Ouvrir les dossiers clients'},{href:'/customers',icon:'◎',label:'Clients / CRM',note:'Rechercher un voyageur'},{href:'/live-ops',icon:'◉',label:'Live Ops',note:'Reprendre une conversation'},{href:'/inventory',icon:'▤',label:'Inventaire',note:'Consulter les offres manuelles'}];
+ }else if(dept==='CUSTOMER_SERVICE'){
+  title='Centre Service Client';description='Traitez rapidement les conversations, demandes après-vente et services voyageurs.';
+  priorities=[{label:'Clients à reprendre',value:d.agentRequired,href:'/live-ops',tone:d.agentRequired?'urgent':'clear'},{label:'Après-vente ouverts',value:w.openPostBooking,href:'/post-booking',tone:w.openPostBooking?'attention':'clear'},{label:'Check-in à suivre',value:w.activeCheckins,href:'/checkin',tone:w.activeCheckins?'attention':'clear'},{label:'Bagages à suivre',value:w.activeBaggage,href:'/baggage',tone:w.activeBaggage?'attention':'clear'}];
+  metrics=[{label:'Conversations actives',value:d.active,note:`${d.agentRequired} avec intervention`,tone:d.agentRequired?'warn':'good'},{label:'Dossiers après-vente',value:w.openPostBooking,note:'Demandes non clôturées'},{label:'Échecs de livraison',value:w.failedDeliveries,note:'24 dernières heures',tone:w.failedDeliveries?'bad':'good'},{label:'Clients CRM',value:w.customers,note:'Profils disponibles'}];
+  quick=[{href:'/live-ops',icon:'◉',label:'Live Ops',note:'Conversations WhatsApp'},{href:'/post-booking',icon:'◇',label:'Après-vente',note:'Modifier / annuler / assister'},{href:'/customers',icon:'◎',label:'Clients / CRM',note:'Historique complet'},{href:'/checkin',icon:'✓',label:'Check-in',note:'Assistance enregistrement'}];
+ }else if(dept==='TICKETING'){
+  title='Centre Ticketing';description='Priorisez l’émission, la livraison et les dossiers qui nécessitent une intervention.';
+  priorities=[{label:'Billets à émettre',value:d.ticketsToIssue,href:'/ticketing',tone:d.ticketsToIssue?'urgent':'clear'},{label:'Échecs de livraison',value:d.deliveryFailures,href:'/ticketing',tone:d.deliveryFailures?'urgent':'clear'},{label:'Paiements en attente',value:d.pendingPayments,href:'/ticketing',tone:d.pendingPayments?'attention':'clear'},{label:'Après-vente ouverts',value:w.openPostBooking,href:'/post-booking',tone:w.openPostBooking?'attention':'clear'}];
+  metrics=[{label:'Émis / 24 h',value:d.issued24h,note:'Billets finalisés',tone:'good'},{label:'À émettre',value:d.ticketsToIssue,note:'File active',tone:d.ticketsToIssue?'warn':'good'},{label:'Livraisons échouées',value:d.deliveryFailures,note:'À reprendre',tone:d.deliveryFailures?'bad':'good'},{label:'Réservations payées / 24 h',value:d.paid24h,note:'Entrées potentielles'}];
+  quick=[{href:'/ticketing',icon:'▣',label:'File Ticketing',note:'Émettre et livrer'},{href:'/reservations',icon:'✈',label:'Réservations',note:'Vérifier le dossier'},{href:'/post-booking',icon:'◇',label:'Après-vente',note:'Demandes après émission'},{href:'/flight-ops',icon:'⌁',label:'Flight Ops',note:'Vérifier les vols'}];
+ }else if(dept==='FLIGHT_OPS'){
+  title='Flight Operations Center';description='Surveillez les vols actifs, perturbations, check-in et services opérationnels.';
+  priorities=[{label:'Incidents ouverts',value:w.openIncidents,href:'/flight-ops',tone:w.openIncidents?'urgent':'clear'},{label:'Vols suivis',value:w.activeFlights,href:'/flight-ops',tone:'clear'},{label:'Check-in à suivre',value:w.activeCheckins,href:'/checkin',tone:w.activeCheckins?'attention':'clear'},{label:'Bagages à suivre',value:w.activeBaggage,href:'/baggage',tone:w.activeBaggage?'attention':'clear'}];
+  metrics=[{label:'Vols actifs',value:w.activeFlights,note:'Tracking automatique',tone:'good'},{label:'Incidents',value:w.openIncidents,note:'Ouverts / reconnus',tone:w.openIncidents?'bad':'good'},{label:'Check-in actifs',value:w.activeCheckins,note:'Assistance en cours'},{label:'Alertes plateforme',value:d.stalled+d.deliveryFailures,note:'Dossiers bloqués / livraison',tone:d.stalled+d.deliveryFailures?'warn':'good'}];
+  quick=[{href:'/flight-ops',icon:'⌁',label:'Flight Ops',note:'Incidents et tracking'},{href:'/checkin',icon:'✓',label:'Check-in',note:'Services en cours'},{href:'/baggage',icon:'□',label:'Bagages',note:'Demandes bagages'},{href:'/reservations',icon:'✈',label:'Réservations',note:'Retrouver le dossier'}];
+ }else if(dept==='FINANCE'){
+  title='Centre Financier';description='Contrôlez les encaissements, paiements à vérifier, remboursements et anomalies.';
+  priorities=[{label:'Paiements en attente',value:pendingFinance,href:'/finance',tone:pendingFinance?'urgent':'clear'},{label:'Reçus à vérifier',value:w.pendingManualReviews,href:'/manual-payments',tone:w.pendingManualReviews?'attention':'clear'},{label:'Remboursements',value:w.pendingRefunds,href:'/finance',tone:w.pendingRefunds?'attention':'clear'},{label:'Échecs / expirés',value:failedFinance,href:'/finance',tone:failedFinance?'urgent':'clear'}];
+  metrics=[{label:'Encaissements · 7 j',value:total7d?total7d.toLocaleString('fr-FR',{maximumFractionDigits:2}):'0',note:`${f.currencyTotals.length} devise(s)`},{label:'Payés / 24 h',value:d.paid24h,note:'Transactions confirmées',tone:'good'},{label:'En attente',value:pendingFinance,note:'À contrôler',tone:pendingFinance?'warn':'good'},{label:'Remboursements ouverts',value:w.pendingRefunds,note:'À traiter',tone:w.pendingRefunds?'warn':'good'}];
+  quick=[{href:'/finance',icon:'◫',label:'Centre financier',note:'Vue complète des transactions'},{href:'/manual-payments',icon:'$',label:'Paiements manuels',note:'Valider les reçus'},{href:'/reservations',icon:'✈',label:'Réservations',note:'Retrouver une vente'},{href:'/audit',icon:'≣',label:'Audit',note:'Historique des actions'}];
+ }else if(dept==='MARKETING'){
+  title='Centre Marketing';description='Mesurez l’acquisition, le parcours client et la conversion vers paiement et émission.';
+  priorities=[{label:'Nouveaux parcours / 24 h',value:flow.started24,href:'/flow-tracker',tone:'clear'},{label:'Paiements / 24 h',value:flow.paid24,href:'/flow-tracker',tone:'clear'},{label:'Conversions paiement',value:`${flow.paymentConversionPct}%`,href:'/marketing',tone:flow.paymentConversionPct<20?'attention':'clear'},{label:'Parcours critiques',value:flow.criticalCount,href:'/flow-tracker',tone:flow.criticalCount?'urgent':'clear'}];
+  metrics=[{label:'Démarrages / 24 h',value:flow.started24,note:'Entrées funnel'},{label:'Paiements / 24 h',value:flow.paid24,note:`Conversion ${flow.paymentConversionPct}%`,tone:'good'},{label:'Billets émis / 24 h',value:flow.issued24,note:`Conversion ${flow.issueConversionPct}%`},{label:'Clients CRM',value:w.customers,note:'Audience disponible'}];
+  quick=[{href:'/marketing',icon:'◇',label:'Centre Marketing',note:'Campagnes et performance'},{href:'/flow-tracker',icon:'↗',label:'Parcours client',note:'Analyser le funnel'},{href:'/customers',icon:'◎',label:'Clients / CRM',note:'Audiences et historique'},{href:'/reservations',icon:'✈',label:'Réservations',note:'Voir les conversions'}];
+ }else{
+  title='Cockpit Direction';description='Vue exécutive de DONI : ventes, service client, finance, ticketing et opérations.';
+  priorities=[{label:'Conversations à reprendre',value:d.agentRequired,href:'/live-ops',tone:d.agentRequired?'urgent':'clear'},{label:'Paiements à vérifier',value:d.pendingPayments,href:'/manual-payments',tone:d.pendingPayments?'attention':'clear'},{label:'Billets à émettre',value:d.ticketsToIssue,href:'/ticketing',tone:d.ticketsToIssue?'attention':'clear'},{label:'Incidents opérationnels',value:w.openIncidents,href:'/flight-ops',tone:w.openIncidents?'urgent':'clear'}];
+  metrics=[{label:'Conversations actives',value:d.active,note:`${d.agentRequired} requièrent un agent`,tone:d.agentRequired?'warn':'good'},{label:'Paiements / 24 h',value:d.paid24h,note:`${d.pendingPayments} en attente`,tone:'good'},{label:'Billets émis / 24 h',value:d.issued24h,note:`${d.ticketsToIssue} à émettre`,tone:d.ticketsToIssue?'warn':'good'},{label:'Vols suivis',value:w.activeFlights,note:`${w.openIncidents} incident(s)`,tone:w.openIncidents?'bad':'good'}];
+  quick=[{href:'/live-ops',icon:'◉',label:'Live Ops',note:'Conversations et interventions'},{href:'/reservations',icon:'✈',label:'Réservations',note:'Dossiers commerciaux'},{href:'/finance',icon:'◫',label:'Finance',note:'Encaissements et contrôle'},{href:'/ticketing',icon:'▣',label:'Ticketing',note:'Émission et livraison'},{href:'/flight-ops',icon:'⌁',label:'Flight Ops',note:'Vols et perturbations'},{href:'/marketing',icon:'◇',label:'Marketing',note:'Acquisition et conversion'}];
+ }
  return <DoniShell title="Tableau de bord" active="/overview" user={user}>
   <AutoRefresh seconds={30}/>
-  <section className="workspaceWelcome"><div><span className="workspaceKicker">Centre de travail</span><h2>Bonjour {user.fullName?.split(' ')[0]||user.username}</h2><p>Voici les dossiers qui demandent votre attention et l’état actuel des opérations DONI.</p></div><div className="workspaceRole">{user.role==='SUPER_ADMIN'?'Super Admin':user.role==='ADMIN'?'Administration':'Agent opérationnel'}</div></section>
-  <div className="priorityGrid">{priorities.map(p=><Link href={p.href} className={`priorityCard ${p.tone}`} key={p.label}><span>{p.label}</span><strong>{p.value}</strong><small>{p.value?'À traiter':'Aucune action requise'} →</small></Link>)}</div>
-  <h2 className="sectionTitle">Performance opérationnelle</h2>
-  <div className="grid"><MetricCard label="Conversations actives" value={d.active} note={`${d.agentRequired} requièrent un agent`} tone={d.agentRequired?'warn':'good'}/><MetricCard label="Paiements en attente" value={d.pendingPayments} note={`${d.paid24h} payés / 24 h`}/><MetricCard label="Tickets à émettre" value={d.ticketsToIssue} note={`${d.issued24h} émis / 24 h`} tone={d.ticketsToIssue?'warn':'good'}/><MetricCard label="Alertes opérationnelles" value={d.stalled+d.deliveryFailures} note={`${d.stalled} bloquées · ${d.deliveryFailures} livraisons`} tone={d.stalled+d.deliveryFailures?'bad':'good'}/></div>
+  <section className="workspaceWelcome"><div><span className="workspaceKicker">{departmentLabel(dept)}</span><h2>{title}</h2><p>{description}</p></div><div className="workspaceRole">{user.role==='SUPER_ADMIN'?'Super Admin':user.role==='ADMIN'?'Admin':departmentLabel(dept)}</div></section>
+  <div className="priorityGrid">{priorities.map(p=><Link href={p.href} className={`priorityCard ${p.tone}`} key={p.label}><span>{p.label}</span><strong>{p.value}</strong><small>{p.note||(Number(p.value)?'À traiter':'Aucune action requise')} →</small></Link>)}</div>
+  <h2 className="sectionTitle">Indicateurs du poste</h2><div className="grid">{metrics.map(m=><MetricCard key={m.label} label={m.label} value={m.value} note={m.note} tone={m.tone}/>)}</div>
   <h2 className="sectionTitle">Accès rapide</h2><div className="quickWorkspace">{quick.map(q=><Link href={q.href} key={q.href} className="quickWorkspaceCard"><span className="quickWorkspaceIcon">{q.icon}</span><div><strong>{q.label}</strong><small>{q.note}</small></div><b>›</b></Link>)}</div>
-  <div className="workspaceColumns"><section><h2 className="sectionTitle">Encaissements · 24 h</h2><div className="card"><div className="moneyStrip">{d.revenue24h.length?d.revenue24h.map(x=><div key={x.currency}><span>{x.currency}</span><strong>{money(x.amount,x.currency)}</strong></div>):<span className="muted">Aucun paiement encaissé sur les 24 dernières heures.</span>}</div></div></section><section><h2 className="sectionTitle">Résumé équipe</h2><div className="card teamSnapshot"><div><span>Automatisées</span><strong>{Math.max(0,d.active-d.agentRequired)}</strong></div><div><span>Intervention agent</span><strong>{d.agentRequired}</strong></div><div><span>Tickets émis / 24 h</span><strong>{d.issued24h}</strong></div></div></section></div>
-  <h2 className="sectionTitle">Conversations récentes</h2><div className="card tableWrap"><table className="table"><thead><tr><th>WhatsApp</th><th>Pays</th><th>Langue</th><th>Étape</th><th>Agent</th><th>Dernière activité</th></tr></thead><tbody>{d.recentConversations.map(c=><tr key={c.id}><td>{c.waId}</td><td>{c.country||'—'}</td><td>{c.language||'—'}</td><td><code>{c.currentSegment}</code></td><td>{c.agentRequired?<span className="badge warn">Requis</span>:<span className="badge ok">Auto</span>}</td><td>{c.updatedAt.toLocaleString('fr-FR')}</td></tr>)}</tbody></table></div>
+  <div className="workspaceColumns"><section><h2 className="sectionTitle">Encaissements · 24 h</h2><div className="card"><div className="moneyStrip">{d.revenue24h.length?d.revenue24h.map(x=><div key={x.currency}><span>{x.currency}</span><strong>{money(x.amount,x.currency)}</strong></div>):<span className="muted">Aucun paiement encaissé sur les 24 dernières heures.</span>}</div></div></section><section><h2 className="sectionTitle">État opérationnel</h2><div className="card teamSnapshot"><div><span>Clients</span><strong>{w.customers}</strong></div><div><span>Vols suivis</span><strong>{w.activeFlights}</strong></div><div><span>Incidents</span><strong>{w.openIncidents}</strong></div></div></section></div>
+  <h2 className="sectionTitle">Activité récente</h2><div className="card tableWrap"><table className="table"><thead><tr><th>WhatsApp</th><th>Pays</th><th>Langue</th><th>Étape</th><th>Agent</th><th>Dernière activité</th></tr></thead><tbody>{d.recentConversations.map(c=><tr key={c.id}><td>{c.waId}</td><td>{c.country||'—'}</td><td>{c.language||'—'}</td><td><code>{c.currentSegment}</code></td><td>{c.agentRequired?<span className="badge warn">Requis</span>:<span className="badge ok">Auto</span>}</td><td>{c.updatedAt.toLocaleString('fr-FR')}</td></tr>)}</tbody></table></div>
  </DoniShell>
 }
