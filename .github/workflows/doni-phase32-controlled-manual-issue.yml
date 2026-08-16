@@ -1,0 +1,126 @@
+name: DONI Phase 32 Controlled Manual Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  controlled-manual-issue:
+    name: Controlled manual issue with delivery disabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+      TEST_PNR: TST32X
+      TEST_TICKET_NUMBER: TST-32-000001
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Verify protected gates are OFF before test
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            const mustOff=["payments.create_enabled","payments.manual_create_enabled","payments.refunds_execute_enabled","ticketing.write_enabled","ticketing.delivery_enabled"];
+            let bad=false;for(const k of mustOff){const v=m.get(k)?.value;console.log(`${k}: ${String(v)}`);if(v===true)bad=true;}
+            if(bad){console.error("Safety gate failure: protected capability already enabled");process.exit(1)}
+          '
+
+      - name: Find latest issuable test ticket
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue-before.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/queue-before.json","utf8"));
+            const rows=(x.rows||[]).filter(t=>t.status==="PENDING_MANUAL_ISSUE"&&String(t.reference||"").startsWith("TKT-PAY-")&&!t.pnr&&!t.ticketNumber&&Number(t.passengerCount)>0&&Number(t.segmentCount)>0);
+            rows.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));const t=rows[0];
+            if(!t){console.error("No PENDING_MANUAL_ISSUE test ticket ready for Phase 32");process.exit(3)}
+            fs.writeFileSync("/tmp/ticket_ref.txt",t.reference);
+            console.log(JSON.stringify({ticketReady:true,reference:t.reference,status:t.status,passengerCount:t.passengerCount,segmentCount:t.segmentCount,total:t.total,currency:t.currency,pnr:null,ticketNumber:null},null,2));
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ticket_ref.txt)" >> "$GITHUB_ENV"
+
+      - name: Issue TEST ticket with delivery hard-disabled
+        run: |
+          set -euo pipefail
+          cleanup(){
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data '{"key":"ticketing.write_enabled","value":false}' "$BASE_URL/api/settings" >/dev/null || true
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data '{"key":"ticketing.delivery_enabled","value":false}' "$BASE_URL/api/settings" >/dev/null || true
+          }
+          trap cleanup EXIT
+
+          # Explicitly keep delivery disabled, then open only the issuance gate.
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data '{"key":"ticketing.delivery_enabled","value":false}' "$BASE_URL/api/settings" -o /tmp/delivery-off.json
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data '{"key":"ticketing.write_enabled","value":true}' "$BASE_URL/api/settings" -o /tmp/write-on.json
+          node -e 'for(const f of ["/tmp/delivery-off.json","/tmp/write-on.json"]){const x=require(f);if(!x.success)process.exit(1)}'
+
+          payload=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE,pnr:process.env.TEST_PNR,ticketNumber:process.env.TEST_TICKET_NUMBER}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/issue.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/ticketing/issue")
+          echo "Issue HTTP $code"
+          test "$code" = "200"
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/issue.json","utf8"));const t=x.ticket||{};
+            if(!x.success||t.status!=="ISSUED"||t.pnr!==process.env.TEST_PNR||t.ticketNumber!==process.env.TEST_TICKET_NUMBER){console.error("Unexpected issue result");process.exit(1)}
+            console.log(JSON.stringify({issued:true,status:t.status,pnr:t.pnr,ticketNumber:t.ticketNumber},null,2));
+          '
+
+          # Close issuance immediately before any later validation.
+          cleanup
+          trap - EXIT
+
+      - name: Prove delivery endpoint is blocked
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/deliver.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/ticketing/deliver")
+          echo "Deliver HTTP $code"
+          test "$code" = "403"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/deliver.json","utf8"));if(x.error!=="ticketing_delivery_disabled"){console.error("Delivery was not blocked by the dedicated gate");process.exit(1)}console.log("Delivery correctly blocked")'
+
+      - name: Verify issued state without delivery
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue-after.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/queue-after.json","utf8"));const ref=process.env.TICKET_REFERENCE;
+            const stillQueued=(x.rows||[]).find(t=>t.reference===ref);const issued=(x.issued||[]).find(t=>t.reference===ref);
+            if(stillQueued){console.error("Issued ticket still appears in manual issue queue");process.exit(1)}
+            if(!issued){console.error("Issued ticket not found in recently issued list");process.exit(1)}
+            if(issued.pnr!==process.env.TEST_PNR||issued.ticketNumber!==process.env.TEST_TICKET_NUMBER){console.error("Issued identifiers do not match controlled test values");process.exit(1)}
+            if(String(issued.deliveryStatus||"").toUpperCase()==="DELIVERED"){console.error("SAFETY FAILURE: test ticket was delivered");process.exit(7)}
+            console.log(JSON.stringify({status:"ISSUED",pnr:issued.pnr,ticketNumber:issued.ticketNumber,deliveryStatus:issued.deliveryStatus||null,delivered:false},null,2));
+          '
+
+      - name: Final safety gate verification
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings-final.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings-final.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            for(const k of ["ticketing.write_enabled","ticketing.delivery_enabled","payments.create_enabled","payments.manual_create_enabled","payments.refunds_execute_enabled"]){const v=m.get(k)?.value;console.log(`${k} final: ${String(v)}`);if(v===true)process.exit(1)}
+          '
+
+      - name: Phase 32 complete
+        run: |
+          echo "Phase 32 passed - the controlled TEST ticket moved to ISSUED with test identifiers, delivery remained blocked, and all protected gates returned OFF."
