@@ -1,0 +1,124 @@
+name: DONI Phase 33F Final E-ticket WhatsApp Delivery
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  final-delivery:
+    name: Assign segment PNRs and deliver final e-ticket
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Find Phase 32 issued TEST ticket
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/queue.json","utf8"));
+            const rows=(x.issued||[]).filter(t=>t.pnr==="TST32X");
+            rows.sort((a,b)=>new Date(b.issuedAt)-new Date(a.issuedAt));const t=rows[0];
+            if(!t){console.error("Phase 32 TEST ticket not found");process.exit(3)}
+            if((t.segmentCount||0)!==2){console.error("Expected exactly 2 test segments");process.exit(4)}
+            fs.writeFileSync("/tmp/ticket_ref.txt",t.reference);
+            console.log(JSON.stringify({reference:t.reference,pnr:t.pnr,segments:t.segmentCount,deliveryStatus:t.deliveryStatus||null},null,2));
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ticket_ref.txt)" >> "$GITHUB_ENV"
+
+      - name: Verify critical gates are OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["ticketing.write_enabled","ticketing.delivery_enabled","payments.create_enabled","payments.manual_create_enabled","payments.refunds_execute_enabled"]){if(m.get(k)===true){console.error(k,"must be OFF");process.exit(7)}}
+          '
+
+      - name: Temporarily enable ticket metadata write
+        run: |
+          body='{"key":"ticketing.write_enabled","value":true}'
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+          node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+
+      - name: Assign separate TEST PNRs to the two segments
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE,pnrs:["VQ7K2A","JH9M5B"]}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/pnrs.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/ticketing/segment-pnrs")
+          echo "Segment PNR update HTTP $code"
+          cat /tmp/pnrs.json
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/pnrs.json");if(!x.success)process.exit(1)'
+
+      - name: Disable ticket metadata write before delivery
+        run: |
+          body='{"key":"ticketing.write_enabled","value":false}'
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/off.json
+          node -e 'const x=require("/tmp/off.json");if(!x.success)process.exit(1)'
+
+      - name: Verify segment PNRs persisted
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue2.json
+          node -e '
+            const x=require("/tmp/queue2.json");const t=(x.issued||[]).find(r=>r.reference===process.env.TICKET_REFERENCE);if(!t)process.exit(1);
+            const pnrs=(t.segments||[]).map(s=>s.pnr||s.bookingReference).filter(Boolean);
+            console.log("Segment PNRs:",pnrs);
+            if(pnrs.length!==2||pnrs[0]!=="VQ7K2A"||pnrs[1]!=="JH9M5B")process.exit(5);
+          '
+
+      - name: Enable controlled final delivery and WhatsApp only
+        run: |
+          set -euo pipefail
+          for pair in 'ticketing.delivery_enabled true' 'whatsapp.enabled true'; do
+            key=$(echo "$pair"|awk '{print $1}'); val=$(echo "$pair"|awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$val")
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+            node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+          done
+
+      - name: Deliver final redesigned TEST e-ticket through WhatsApp
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/delivery.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/ticketing/deliver")
+          echo "Delivery HTTP $code"
+          cat /tmp/delivery.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/delivery.json");const wa=(x.results||[]).find(r=>r.channel==="whatsapp");
+            if(!wa||wa.ok!==true){console.error("WhatsApp delivery failed",wa||null);process.exit(2)}
+            if(!["DELIVERED","PARTIAL"].includes(x.status))process.exit(2);
+            console.log(JSON.stringify({status:x.status,whatsappSent:true},null,2));
+          '
+
+      - name: Cleanup all write and delivery gates
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in ticketing.write_enabled ticketing.delivery_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+
+      - name: Phase 33F complete
+        run: echo "Phase 33F passed - final redesigned e-ticket with separate segment PNRs was delivered through WhatsApp and all safety gates were restored OFF."
