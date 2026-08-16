@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 
-type Props={reference:string;checkinEligible:boolean;trackingReady:boolean};
+type Props={reference:string;checkinEligible:boolean;trackingReady:boolean;resendEnabled:boolean};
 
 const buttonStyle:React.CSSProperties={
   display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,
@@ -10,11 +10,12 @@ const buttonStyle:React.CSSProperties={
   background:'#fff',color:'#0f2742',fontWeight:700,fontSize:13,textDecoration:'none',cursor:'pointer'
 };
 
-export function ReservationActions({reference,checkinEligible,trackingReady}:Props){
+export function ReservationActions({reference,checkinEligible,trackingReady,resendEnabled}:Props){
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
 
   async function resend(){
+    if(!resendEnabled){setMessage('Renvoi désactivé par sécurité. Activez temporairement la livraison dans Settings.');return;}
     setBusy(true);setMessage('');
     try{
       const res=await fetch('/api/ticketing/deliver',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({reference})});
@@ -28,9 +29,9 @@ export function ReservationActions({reference,checkinEligible,trackingReady}:Pro
 
   return <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
     <a href={`/api/ticketing/${encodeURIComponent(reference)}/pdf`} target="_blank" rel="noreferrer" style={buttonStyle}>📄 Voir e-ticket</a>
-    <button type="button" onClick={resend} disabled={busy} style={{...buttonStyle,opacity:busy?.65:1}}>{busy?'Envoi…':'📨 Renvoyer e-ticket'}</button>
-    <a href={trackingReady?'/flight-ops':'#'} aria-disabled={!trackingReady} style={{...buttonStyle,opacity:trackingReady?1:.45,pointerEvents:trackingReady?'auto':'none'}}>🛫 Suivi du vol</a>
-    <a href={checkinEligible?'/checkin':'#'} aria-disabled={!checkinEligible} style={{...buttonStyle,opacity:checkinEligible?1:.45,pointerEvents:checkinEligible?'auto':'none'}}>✅ Check-in</a>
-    {message?<span style={{fontSize:12,color:'#475569',maxWidth:330}}>{message}</span>:null}
+    <button type="button" onClick={resend} disabled={busy||!resendEnabled} title={resendEnabled?'Renvoyer le billet':'Activez temporairement ticketing.delivery_enabled dans Settings'} style={{...buttonStyle,opacity:busy||!resendEnabled?.5:1,cursor:busy||!resendEnabled?'not-allowed':'pointer'}}>{busy?'Envoi…':'📨 Renvoyer e-ticket'}</button>
+    <a href={trackingReady?`/flight-ops?reference=${encodeURIComponent(reference)}`:'#'} aria-disabled={!trackingReady} style={{...buttonStyle,opacity:trackingReady?1:.45,pointerEvents:trackingReady?'auto':'none'}}>🛫 Suivi du vol</a>
+    <a href={checkinEligible?`/checkin?reference=${encodeURIComponent(reference)}`:'#'} aria-disabled={!checkinEligible} style={{...buttonStyle,opacity:checkinEligible?1:.45,pointerEvents:checkinEligible?'auto':'none'}}>✅ Check-in</a>
+    {message?<span style={{fontSize:12,color:'#475569',maxWidth:360}}>{message}</span>:null}
   </div>;
 }
