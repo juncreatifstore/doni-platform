@@ -1,0 +1,94 @@
+name: DONI Phase 34 Post-booking Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  validate-post-booking:
+    name: Validate reservations, tracking and resend readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify all operational send/write gates are OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const mustOff=["ticketing.write_enabled","ticketing.delivery_enabled","whatsapp.enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.oag_testing_enabled","payments.create_enabled","payments.manual_create_enabled","payments.refunds_execute_enabled"];
+            for(const k of mustOff){const v=m.get(k);console.log(`${k}: ${String(v)}`);if(v===true){console.error(`${k} must remain OFF in Phase 34`);process.exit(7)}}
+          '
+
+      - name: Find issued Phase 32/33F test ticket
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs");const x=require("/tmp/queue.json");
+            const rows=(x.issued||[]).filter(t=>t.pnr==="TST32X");rows.sort((a,b)=>new Date(b.issuedAt)-new Date(a.issuedAt));const t=rows[0];
+            if(!t){console.error("Issued TEST ticket TST32X not found");process.exit(3)}
+            fs.writeFileSync("/tmp/ref",t.reference);console.log(JSON.stringify({reference:t.reference,status:"ISSUED",deliveryStatus:t.deliveryStatus||null},null,2));
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ref)" >> "$GITHUB_ENV"
+
+      - name: Validate Mes reservations backend
+        run: |
+          set -euo pipefail
+          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/reservations.json -w '%{http_code}' "$BASE_URL/api/post-booking/reservations?reference=$ref")
+          echo "Reservations HTTP $code"
+          cat /tmp/reservations.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/reservations.json");const r=(x.rows||[])[0];
+            if(!x.success||!r)process.exit(1);
+            if(r.status!=="ISSUED")throw new Error("reservation_not_issued");
+            if(!Array.isArray(r.passengers)||r.passengers.length<1)throw new Error("missing_passengers");
+            if(!Array.isArray(r.segments)||r.segments.length!==2)throw new Error("expected_two_segments");
+            const pnrs=r.segments.map(s=>s.pnr||s.bookingReference);
+            if(pnrs[0]!=="VQ7K2A"||pnrs[1]!=="JH9M5B")throw new Error(`segment_pnrs_invalid:${pnrs.join(",")}`);
+            if(r.canResendEticket!==true)throw new Error("resend_not_ready");
+            if(r.alertsEnabled!==false||r.disruptionAlertsEnabled!==false)throw new Error("alerts_must_be_off");
+            console.log(JSON.stringify({reference:r.reference,passengers:r.passengers.length,segments:r.segments.length,segmentPnrs:pnrs,trackingCount:r.trackingCount,trackingReady:r.trackingReady,canResendEticket:r.canResendEticket,checkinEligible:r.checkinEligible,hoursToDeparture:r.hoursToDeparture,alertsEnabled:r.alertsEnabled,disruptionAlertsEnabled:r.disruptionAlertsEnabled},null,2));
+          '
+
+      - name: Validate flight tracking registration
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/flight-ops/summary" -o /tmp/flightops.json
+          node -e '
+            const x=require("/tmp/flightops.json");if(!x.success)process.exit(1);
+            const rows=(x.rows||[]).filter(r=>r.ticketReference===process.env.TICKET_REFERENCE);
+            console.log(JSON.stringify({trackingRows:rows.length,flights:rows.map(r=>`${r.airlineCode}${r.flightNumber} ${r.origin}-${r.destination}`),pendingAlerts:x.pendingAlerts,failedAlerts:x.failedAlerts},null,2));
+            if(rows.length<2){console.error("Expected at least 2 tracking rows for the two ticket segments");process.exit(4)}
+          '
+
+      - name: Final safety re-check
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["ticketing.write_enabled","ticketing.delivery_enabled","whatsapp.enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled"]){if(m.get(k)===true)process.exit(1)}
+          '
+
+      - name: Phase 34 complete
+        run: echo "Phase 34 passed - issued ticket is available in Mes reservations backend, separate segment PNRs persist, e-ticket resend is ready, flight tracking is registered, and alerts remain disabled."
