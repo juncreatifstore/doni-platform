@@ -31,7 +31,7 @@ const groups:NavGroup[]=[
  ]},
  {label:'Finance',items:[
   {href:'/manual-payments',icon:'$',label:'Paiements manuels',departments:['FINANCE','OPERATIONS','MANAGEMENT']},
-  {href:'/finance',icon:'◫',label:'Centre financier',minimum:'ADMIN'},
+  {href:'/finance',icon:'◫',label:'Centre financier',departments:['FINANCE','MANAGEMENT']},
  ]},
  {label:'Marketing',items:[
   {href:'/marketing',icon:'◇',label:'Centre marketing',departments:['MARKETING','MANAGEMENT']},
