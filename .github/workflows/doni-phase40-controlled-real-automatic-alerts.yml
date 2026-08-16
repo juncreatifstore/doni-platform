@@ -1,0 +1,107 @@
+name: DONI Phase 40 Controlled Real Automatic Alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  controlled-real-alert-readiness:
+    name: Validate real disruption detection and isolated automatic alert queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify all automatic send gates start OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const keys=["tracking.enabled","tracking.auto_poll_enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","whatsapp.enabled"];
+            for(const k of keys){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(7)}
+          '
+
+      - name: Inspect alert queue before controlled detection
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/before.json -w '%{http_code}' "$BASE_URL/api/flight-ops/alert-readiness")
+          echo "Readiness HTTP $code"; cat /tmp/before.json; test "$code" = "200"
+          node -e '
+            const x=require("/tmp/before.json");if(!x.success)process.exit(1);
+            if(x.eligibleDue!==0)throw new Error("alerts_must_not_be_eligible_with_send_gate_off");
+            if(x.standardEnabled!==false||x.autoSendEnabled!==false||x.whatsappEnabled!==false)throw new Error("unsafe_initial_alert_state");
+          '
+
+      - name: Enable real detection and disruption queue only
+        run: |
+          set -euo pipefail
+          for pair in 'tracking.enabled true' 'tracking.auto_poll_enabled true' 'tracking.alerts_enabled true' 'tracking.disruption_alerts_enabled true'; do
+            key=$(echo "$pair"|awk '{print $1}'); val=$(echo "$pair"|awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$val")
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+            node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+          done
+
+      - name: Run production tracking engine with delivery still locked
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/engine.json -w '%{http_code}' -H 'content-type: application/json' -X POST "$BASE_URL/api/flight-ops/run-auto-test")
+          echo "Engine HTTP $code"; cat /tmp/engine.json; test "$code" = "200"
+          node -e '
+            const x=require("/tmp/engine.json");if(!x.success||x.disabled===true)process.exit(1);
+            if(Number(x.alerts||0)!==0)throw new Error("no_client_alert_may_be_sent_in_phase40");
+            console.log(JSON.stringify({tracking:x.tracking,polled:x.polled,deferred:x.deferred,providerFailures:x.providerFailures,alerts:x.alerts},null,2));
+          '
+
+      - name: Verify disruption-only queue isolation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/flight-ops/alert-readiness" -o /tmp/after.json
+          cat /tmp/after.json
+          node -e '
+            const x=require("/tmp/after.json");if(!x.success)process.exit(1);
+            if(x.disruptionEnabled!==true||x.alertsEnabled!==true)throw new Error("real_disruption_detection_not_enabled");
+            if(x.autoSendEnabled!==false||x.standardEnabled!==false||x.whatsappEnabled!==false)throw new Error("delivery_or_standard_alerts_must_remain_locked");
+            if(x.eligibleDue!==0)throw new Error("nothing_may_be_delivery_eligible_while_auto_send_is_off");
+            console.log(JSON.stringify({pendingDisruptions:x.pendingDisruptions,dueDisruptions:x.dueDisruptions,pendingStandard:x.pendingStandard,dueStandard:x.dueStandard,eligibleDue:x.eligibleDue},null,2));
+          '
+
+      - name: Cleanup all tracking and alert gates
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in tracking.enabled tracking.auto_poll_enabled tracking.alerts_enabled tracking.disruption_alerts_enabled tracking.auto_send_enabled tracking.standard_alerts_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+
+      - name: Verify final safety state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["tracking.enabled","tracking.auto_poll_enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","whatsapp.enabled"]){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(1)}
+          '
+
+      - name: Phase 40 complete
+        run: echo "Phase 40 passed - the real tracking engine could detect/queue only true disruption events, standard reminders stayed excluded, no client message was sent, and every automatic polling/alert/delivery gate returned OFF."
