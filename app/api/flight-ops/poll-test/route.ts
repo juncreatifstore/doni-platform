@@ -8,7 +8,6 @@ export async function POST(req:Request){
   const auth=await requireApiUser('SUPER_ADMIN');
   if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});
   if(!(await getSetting<boolean>('tracking.test_poll_enabled')))return NextResponse.json({success:false,error:'tracking_test_poll_disabled'},{status:403});
-  if(!(await getSetting<boolean>('tracking.enabled')))return NextResponse.json({success:false,error:'tracking_disabled'},{status:403});
   try{
     const body=await req.json();
     const reference=String(body?.reference||'').trim().toUpperCase();
