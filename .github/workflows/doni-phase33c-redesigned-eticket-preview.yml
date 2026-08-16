@@ -1,0 +1,98 @@
+name: DONI Phase 33C Redesigned E-ticket Preview
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-preview:
+    name: Generate redesigned e-ticket PDF artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install TS runner for preview
+        run: npm install --no-save --no-audit --no-fund tsx
+
+      - name: Generate redesigned e-ticket PDF
+        run: |
+          mkdir -p preview
+          cat > /tmp/generate-phase33c.ts <<'EOF'
+          import { writeFileSync } from 'node:fs';
+          import { buildEticketPdf } from '${{ github.workspace }}/services/ticketing/pdf.ts';
+
+          const ticket = {
+            reference: 'TKT-PHASE33C-PREVIEW',
+            pnr: 'GLOBAL1',
+            ticketNumber: 'TST-33C-000001',
+            issuedAt: new Date('2026-08-16T00:00:00Z'),
+            payload: {
+              passengers: [
+                { firstName: 'JEAN', lastName: 'PHILIPPE', type: 'Adult' }
+              ],
+              segments: [
+                {
+                  airline: 'AV',
+                  flightNumber: '0433',
+                  origin: 'MEX',
+                  destination: 'SAL',
+                  departureAt: '2026-08-22T04:00:00',
+                  arrivalAt: '2026-08-22T06:10:00',
+                  cabin: 'Economy',
+                  pnr: 'VQ7K2A'
+                },
+                {
+                  airline: 'AV',
+                  flightNumber: '0385',
+                  origin: 'SAL',
+                  destination: 'BOG',
+                  departureAt: '2026-08-22T12:05:00',
+                  arrivalAt: '2026-08-22T16:00:00',
+                  cabin: 'Economy',
+                  bookingReference: 'JH9M5B'
+                }
+              ],
+              total: 234.59,
+              currency: 'USD'
+            }
+          };
+
+          const pdf = await buildEticketPdf(ticket);
+          writeFileSync('preview/DONI-Phase33C-redesigned-eticket.pdf', pdf);
+          console.log(`Generated PDF: ${pdf.length} bytes`);
+          EOF
+          npx tsx /tmp/generate-phase33c.ts
+          test -s preview/DONI-Phase33C-redesigned-eticket.pdf
+
+      - name: Verify PDF header
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('preview/DONI-Phase33C-redesigned-eticket.pdf')
+          b=p.read_bytes()
+          assert b.startswith(b'%PDF-'), 'Generated file is not a PDF'
+          assert len(b) > 1000, 'Generated PDF is unexpectedly small'
+          print('PDF artifact verified:', len(b), 'bytes')
+          PY
+
+      - name: Upload redesigned e-ticket preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: DONI-Phase33C-redesigned-eticket-preview
+          path: preview/DONI-Phase33C-redesigned-eticket.pdf
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Phase 33C complete
+        run: |
+          echo "Phase 33C passed - the redesigned per-segment-PNR e-ticket was generated as a downloadable GitHub Actions artifact."
