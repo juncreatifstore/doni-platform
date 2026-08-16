@@ -1,0 +1,5 @@
+import {NextResponse} from 'next/server';
+import {requireApiUser} from '@/lib/auth/session';
+import {MARKETING_JOB_ROLES,marketingTeamWorkspace,setMarketingJobRole} from '@/lib/workspace/marketing-team';
+export async function GET(){const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});const team=await marketingTeamWorkspace();return NextResponse.json({success:true,team,roles:MARKETING_JOB_ROLES});}
+export async function PATCH(req:Request){const auth=await requireApiUser('ADMIN');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});try{const b=await req.json();if(typeof b.userId!=='string'||!b.userId)throw new Error('user_required');if(b.jobRole!==null&&!MARKETING_JOB_ROLES.includes(b.jobRole))throw new Error('invalid_marketing_role');const jobRole=await setMarketingJobRole(b.userId,b.jobRole,auth.user.id);return NextResponse.json({success:true,jobRole});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'update_failed'},{status:400});}}
