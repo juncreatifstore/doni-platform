@@ -1,0 +1,90 @@
+name: DONI Phase 42 Progressive Flight Ops Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  activate-production-tracking:
+    name: Activate real automatic polling with client delivery OFF
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify client-delivery gates start OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const safeOff=["tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","tracking.test_alert_enabled","tracking.test_poll_enabled","tracking.test_delivery_enabled","whatsapp.enabled","ticketing.write_enabled","ticketing.delivery_enabled","payments.create_enabled"];
+            for(const k of safeOff){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)throw new Error(`${k}_must_start_off`)}
+            console.log(`tracking.enabled before: ${String(m.get("tracking.enabled"))}`);
+            console.log(`tracking.auto_poll_enabled before: ${String(m.get("tracking.auto_poll_enabled"))}`);
+          '
+
+      - name: Enable provider and automatic polling only
+        run: |
+          set -euo pipefail
+          for key in tracking.enabled tracking.auto_poll_enabled; do
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:true}))' "$key")
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+            node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+          done
+
+      - name: Execute production Flight Ops engine once
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/run.json -w '%{http_code}' -H 'content-type: application/json' -X POST "$BASE_URL/api/flight-ops/run-auto-test")
+          echo "Engine HTTP $code"; cat /tmp/run.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/run.json");if(!x.success)throw new Error(x.error||"engine_failed");
+            console.log(JSON.stringify({disabled:x.disabled,tracking:x.tracking,polled:x.polled,deferred:x.deferred,providerFailures:x.providerFailures,alerts:x.alerts},null,2));
+            if(x.disabled===true)throw new Error(`engine_disabled:${x.reason||"unknown"}`);
+            if(Number(x.alerts||0)!==0)throw new Error("client_alert_sent_during_phase42");
+          '
+
+      - name: Verify permanent production state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const requiredOn=["tracking.enabled","tracking.auto_poll_enabled"];
+            const requiredOff=["tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","tracking.test_alert_enabled","tracking.test_poll_enabled","tracking.test_delivery_enabled","whatsapp.enabled"];
+            for(const k of requiredOn){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)!==true)throw new Error(`${k}_must_be_on`)}
+            for(const k of requiredOff){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)throw new Error(`${k}_must_be_off`)}
+          '
+
+      - name: Roll back production polling on failure
+        if: failure()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in tracking.enabled tracking.auto_poll_enabled tracking.alerts_enabled tracking.disruption_alerts_enabled tracking.auto_send_enabled tracking.standard_alerts_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+          echo "Rollback applied: automatic tracking and all delivery gates OFF."
+
+      - name: Phase 42 complete
+        run: echo "Phase 42 passed - FlightAware provider and automatic polling remain enabled for production, while disruption creation, automatic alert delivery, standard reminders and WhatsApp sending remain OFF."
