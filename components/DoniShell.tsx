@@ -14,6 +14,7 @@ const groups:NavGroup[]=[
   {href:'/overview',icon:'⌂',label:'Tableau de bord'},
   {href:'/tasks',icon:'✓',label:'Mes tâches'},
   {href:'/management',icon:'◆',label:'Cockpit Direction',minimum:'ADMIN'},
+  {href:'/productivity',icon:'▥',label:'Productivité équipe',minimum:'ADMIN'},
   {href:'/live-ops',icon:'◉',label:'Live Ops',departments:['CUSTOMER_SERVICE','OPERATIONS','MANAGEMENT','RESERVATIONS']},
  ]},
  {label:'Ventes & Clients',items:[
