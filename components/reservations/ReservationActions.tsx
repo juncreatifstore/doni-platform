@@ -27,9 +27,10 @@ export function ReservationActions({reference,checkinEligible,trackingReady,rese
     finally{setBusy(false);}
   }
 
+  const resendBlocked=busy||!resendEnabled;
   return <div style={{display:'flex',flexWrap:'wrap',gap:8,alignItems:'center'}}>
     <a href={`/api/ticketing/${encodeURIComponent(reference)}/pdf`} target="_blank" rel="noreferrer" style={buttonStyle}>📄 Voir e-ticket</a>
-    <button type="button" onClick={resend} disabled={busy||!resendEnabled} title={resendEnabled?'Renvoyer le billet':'Activez temporairement ticketing.delivery_enabled dans Settings'} style={{...buttonStyle,opacity:busy||!resendEnabled?.5:1,cursor:busy||!resendEnabled?'not-allowed':'pointer'}}>{busy?'Envoi…':'📨 Renvoyer e-ticket'}</button>
+    <button type="button" onClick={resend} disabled={resendBlocked} title={resendEnabled?'Renvoyer le billet':'Activez temporairement ticketing.delivery_enabled dans Settings'} style={{...buttonStyle,opacity:resendBlocked?0.5:1,cursor:resendBlocked?'not-allowed':'pointer'}}>{busy?'Envoi…':'📨 Renvoyer e-ticket'}</button>
     <a href={trackingReady?`/flight-ops?reference=${encodeURIComponent(reference)}`:'#'} aria-disabled={!trackingReady} style={{...buttonStyle,opacity:trackingReady?1:.45,pointerEvents:trackingReady?'auto':'none'}}>🛫 Suivi du vol</a>
     <a href={checkinEligible?`/checkin?reference=${encodeURIComponent(reference)}`:'#'} aria-disabled={!checkinEligible} style={{...buttonStyle,opacity:checkinEligible?1:.45,pointerEvents:checkinEligible?'auto':'none'}}>✅ Check-in</a>
     {message?<span style={{fontSize:12,color:'#475569',maxWidth:360}}>{message}</span>:null}
