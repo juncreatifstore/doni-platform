@@ -15,6 +15,7 @@ const groups:NavGroup[]=[
  {label:'Accueil',items:[
   {href:'/overview',icon:'⌂',label:'Tableau de bord'},
   {href:'/tasks',icon:'✓',label:'Mes tâches'},
+  {href:'/cases',icon:'▦',label:'Mes dossiers'},
   {href:'/management',icon:'◆',label:'Cockpit Direction',minimum:'ADMIN'},
   {href:'/productivity',icon:'▥',label:'Productivité équipe',minimum:'ADMIN'},
   {href:'/escalations',icon:'!',label:'Escalades SLA',minimum:'ADMIN'},
