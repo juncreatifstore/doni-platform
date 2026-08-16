@@ -1,5 +1,5 @@
 import {db} from '@/lib/db';
-import {getFlightAwareStatus} from './flightaware';
+import {queryFlightAwareStatus} from './flightaware';
 import {upsertFlightIncident} from '@/services/operations/incidents';
 
 function sameAirport(a:any,b:any){return String(a||'').trim().toUpperCase()===String(b||'').trim().toUpperCase();}
@@ -14,7 +14,7 @@ export async function controlledPollTicket(reference:string){
   const results:any[]=[];
   for(const t of tracks){
     const date=new Date(t.scheduledDeparture).toISOString().slice(0,10);
-    const provider:any=await getFlightAwareStatus(t.airlineCode,t.flightNumber,date);
+    const provider:any=await queryFlightAwareStatus(t.airlineCode,t.flightNumber,date);
     if(!provider.ok||!provider.normalized){results.push({trackingId:t.id,flight:`${t.airlineCode}${t.flightNumber}`,ok:false,error:provider.error||'provider_failed',status:provider.status||null});continue;}
     const n=provider.normalized;
     if((n.origin&&!sameAirport(n.origin,t.origin))||(n.destination&&!sameAirport(n.destination,t.destination))){results.push({trackingId:t.id,flight:`${t.airlineCode}${t.flightNumber}`,ok:false,error:'route_mismatch',providerRoute:`${n.origin||'?'}-${n.destination||'?'}`,expectedRoute:`${t.origin}-${t.destination}`});continue;}
