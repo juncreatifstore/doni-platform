@@ -45,6 +45,7 @@ const groups:NavGroup[]=[
   {href:'/marketing',icon:'◇',label:'Dashboard marketing',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/leads',icon:'◎',label:'Leads & Prospects',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/content',icon:'▦',label:'Calendrier contenu',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/studio',icon:'✦',label:'Studio de contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/campaigns',icon:'%',label:'Campagnes & Ads',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/performance',icon:'↗',label:'Performance',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/objectives',icon:'✓',label:'Objectifs marketing',departments:['MARKETING','MANAGEMENT']},
