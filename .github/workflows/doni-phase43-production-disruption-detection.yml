@@ -1,0 +1,104 @@
+name: DONI Phase 43 Production Disruption Detection
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  activate-disruption-detection:
+    name: Enable real disruption queueing with client delivery OFF
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify production tracking is already ON and delivery stays OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["tracking.enabled","tracking.auto_poll_enabled"]){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)!==true)throw new Error(`${k}_must_already_be_on`)}
+            const deliveryOff=["tracking.alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","tracking.test_alert_enabled","tracking.test_poll_enabled","tracking.test_delivery_enabled","whatsapp.enabled"];
+            for(const k of deliveryOff){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)throw new Error(`${k}_must_be_off`)}
+            console.log(`tracking.disruption_alerts_enabled before: ${String(m.get("tracking.disruption_alerts_enabled"))}`);
+          '
+
+      - name: Enable real disruption queue creation only
+        run: |
+          set -euo pipefail
+          body='{"key":"tracking.disruption_alerts_enabled","value":true}'
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+          node -e 'const x=require("/tmp/set.json");if(!x.success)throw new Error(x.error||"setting_update_failed")'
+
+      - name: Execute Flight Ops once with delivery blocked
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/run.json -w '%{http_code}' -H 'content-type: application/json' -X POST "$BASE_URL/api/flight-ops/run-auto-test")
+          echo "Engine HTTP $code"; cat /tmp/run.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/run.json");if(!x.success)throw new Error(x.error||"engine_failed");
+            console.log(JSON.stringify({disabled:x.disabled,tracking:x.tracking,polled:x.polled,deferred:x.deferred,providerFailures:x.providerFailures,alerts:x.alerts},null,2));
+            if(x.disabled===true)throw new Error(`engine_disabled:${x.reason||"unknown"}`);
+            if(Number(x.alerts||0)!==0)throw new Error("client_alert_sent_during_phase43");
+          '
+
+      - name: Verify disruption queue readiness and delivery isolation
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/readiness.json -w '%{http_code}' "$BASE_URL/api/flight-ops/alert-readiness")
+          echo "Readiness HTTP $code"; cat /tmp/readiness.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/readiness.json");if(!x.success)throw new Error(x.error||"readiness_failed");
+            console.log(JSON.stringify(x,null,2));
+            if(x.disruptionEnabled!==true)throw new Error("disruption_detection_must_be_on");
+            if(x.alertsEnabled===true||x.autoSendEnabled===true||x.standardEnabled===true||x.whatsappEnabled===true)throw new Error("delivery_gate_open_during_phase43");
+            if(Number(x.eligibleDue||0)!==0)throw new Error("eligible_delivery_must_remain_zero");
+          '
+
+      - name: Verify permanent Phase 43 production state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const requiredOn=["tracking.enabled","tracking.auto_poll_enabled","tracking.disruption_alerts_enabled"];
+            const requiredOff=["tracking.alerts_enabled","tracking.auto_send_enabled","tracking.standard_alerts_enabled","tracking.test_alert_enabled","tracking.test_poll_enabled","tracking.test_delivery_enabled","whatsapp.enabled"];
+            for(const k of requiredOn){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)!==true)throw new Error(`${k}_must_be_on`)}
+            for(const k of requiredOff){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)throw new Error(`${k}_must_be_off`)}
+          '
+
+      - name: Roll back only disruption queueing on failure
+        if: failure()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            body='{"key":"tracking.disruption_alerts_enabled","value":false}'
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            for key in tracking.alerts_enabled tracking.auto_send_enabled tracking.standard_alerts_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+          echo "Rollback applied: disruption queueing and all delivery gates OFF; production polling remains untouched."
+
+      - name: Phase 43 complete
+        run: echo "Phase 43 passed - automatic Flight Ops remains live, real delay/cancellation/diversion events can create deduplicated disruption alerts, while alert processing, automatic delivery, standard reminders and WhatsApp sending remain OFF."
