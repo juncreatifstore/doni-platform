@@ -6,6 +6,7 @@ import type { PaymentOption } from './types';
 import { createProviderIntent } from './providers';
 import { expiryDate, ttlMinutes } from './expiry';
 import { convertCurrency } from './fx';
+import { getSetting } from '@/lib/settings/service';
 
 function makeReference() {
   return `PAY-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
@@ -18,6 +19,10 @@ function asJson(value: unknown): Prisma.InputJsonValue {
 export async function createPayment(s: ConversationSession, o: PaymentOption) {
   const offer = s.state.selected_offer as FlightOffer | undefined;
   if (!offer) return { ok: false, error: 'missing_selected_offer' };
+
+  if (o.manual && !(await getSetting<boolean>('payments.manual_create_enabled'))) {
+    return { ok: false, error: 'manual_payments_create_disabled' };
+  }
 
   const rawAmount = Number(s.state.payment_amount ?? offer.price_total);
   const sourceCurrency = String(s.state.payment_amount ? o.currency : offer.currency).toUpperCase();
@@ -112,7 +117,7 @@ export async function markPaid(reference: string, provider: string, details: any
   const expected = Number(p.amount);
   const got = Number(details?.amount);
   const currency = String(details?.currency || '').toUpperCase();
-  if (Number.isFinite(got) && Math.abs(got - expected) > 0.02) return { ok: false, reason: 'amount_mismatch' };
+  if (Number.isFinite(got) && Math.abs(got-expected)>0.02) return { ok: false, reason: 'amount_mismatch' };
   if (currency && currency !== p.currency.toUpperCase()) return { ok: false, reason: 'currency_mismatch' };
 
   const paid = await db.payment.update({ where: { id: p.id }, data: { status: 'PAID' } });
