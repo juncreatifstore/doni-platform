@@ -1,0 +1,10 @@
+import {redirect} from 'next/navigation';
+import {DoniShell} from '@/components/DoniShell';
+import {requirePageUser} from '@/lib/auth/session';
+import {hasRole} from '@/lib/auth/permissions';
+import {MetricCard} from '@/components/analytics/MetricCard';
+import {AutoRefresh} from '@/components/analytics/AutoRefresh';
+import {EscalationCenter} from '@/components/workspace/EscalationCenter';
+import {getEscalationOverview} from '@/services/workspace/escalation';
+export const dynamic='force-dynamic';
+export default async function Page(){const user=await requirePageUser('ADMIN');if(!hasRole(user.role,'ADMIN'))redirect('/overview?forbidden=1');const d=await getEscalationOverview();return <DoniShell title="Escalades SLA" active="/escalations" user={user}><AutoRefresh seconds={30}/><section className="workspaceWelcome"><div><span className="workspaceKicker">Contrôle SLA</span><h2>Centre d’escalade</h2><p>Identifier les dossiers proches du dépassement, hors SLA, bloqués ou urgents et redistribuer le travail immédiatement.</p></div></section><div className="grid"><MetricCard label="SLA actifs" value={d.summary.active}/><MetricCard label="Hors SLA" value={d.summary.overdue} tone={d.summary.overdue?'bad':'good'}/><MetricCard label="À risque · 30 min" value={d.summary.approaching} tone={d.summary.approaching?'warn':'good'}/><MetricCard label="Respect SLA" value={`${d.summary.compliance}%`} tone={d.summary.compliance>=90?'good':d.summary.compliance>=75?'warn':'bad'}/></div><h2 className="sectionTitle">Dossiers à escalader</h2><EscalationCenter initial={d.critical as any}/><h2 className="sectionTitle">Respect SLA par département</h2><div className="productivityDeptGrid">{d.departments.map((x:any)=><div className="card productivityDept" key={x.department}><strong>{x.label}</strong><div><span>Ouvertes</span><b>{x.open}</b></div><div><span>Hors SLA</span><b>{x.overdue}</b></div><div><span>À risque</span><b>{x.approaching}</b></div><div><span>Bloquées</span><b>{x.blocked}</b></div><div><span>Respect SLA</span><b>{x.compliance}%</b></div></div>)}</div></DoniShell>}
