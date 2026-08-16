@@ -1,0 +1,129 @@
+name: DONI Phase 30 Human Payment Approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+      anchor_text:
+        description: Prior inbound message used to identify the WhatsApp test conversation
+        required: true
+        default: DONI-PHASE21
+
+jobs:
+  human-payment-approval:
+    name: Controlled human approval with ticketing disabled
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      ANCHOR_TEXT: ${{ inputs.anchor_text }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Validate admin credentials
+        run: |
+          set -euo pipefail
+          test -n "${DONI_ADMIN_USERNAME:-}" || (echo "Missing DONI_ADMIN_USERNAME" && exit 1)
+          test -n "${DONI_ADMIN_PASSWORD:-}" || (echo "Missing DONI_ADMIN_PASSWORD" && exit 1)
+
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/login.json","utf8"));if(!x.success||x.role!=="SUPER_ADMIN"){console.error("SUPER_ADMIN required");process.exit(1)}'
+
+      - name: Verify all transaction and ticketing gates are OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            const mustOff=["payments.create_enabled","payments.manual_create_enabled","ticketing.write_enabled","payments.refunds_execute_enabled","payments.manual_receipt_ocr_enabled"];
+            let bad=false;for(const k of mustOff){const v=m.get(k)?.value;console.log(`${k}: ${String(v)}`);if(v===true)bad=true;}
+            if(bad){console.error("Safety gate failure: one or more protected capabilities are enabled");process.exit(1)}
+          '
+
+      - name: Find Phase 29 pending manual review
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations?limit=200" -o /tmp/conversations.json
+          node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/conversations.json","utf8"));for(const c of x.conversations||[])if(c.id)console.log(c.id)' > /tmp/ids.txt
+          : > /tmp/found_id.txt
+          while IFS= read -r id; do
+            [ -n "$id" ] || continue
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/live-ops/conversations/$id" -o /tmp/detail.json
+            if node -e 'const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/detail.json","utf8"));const a=process.env.ANCHOR_TEXT;const ms=x.conversation?.messages||[];process.exit(ms.some(m=>String(m.direction).toUpperCase()==="INBOUND"&&String(m.text||"").trim()===a.trim())?0:1)'; then
+              echo "$id" > /tmp/found_id.txt
+              break
+            fi
+          done < /tmp/ids.txt
+          test -s /tmp/found_id.txt || (echo "Could not find WhatsApp test conversation" && exit 1)
+          echo "CONVERSATION_ID=$(cat /tmp/found_id.txt)" >> "$GITHUB_ENV"
+
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/manual-payments" -o /tmp/reviews.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/reviews.json","utf8"));const cid=process.env.CONVERSATION_ID;
+            const rows=(x.rows||[]).filter(r=>r.hasReceipt===true&&r.status==="PENDING"&&r.payment?.status==="PENDING"&&r.payment?.provider==="manual_zelle"&&r.payment?.conversationId===cid);
+            rows.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));const r=rows[0];
+            if(!r){console.error("No Phase 29 PENDING Zelle review found for the test conversation");process.exit(3)}
+            fs.writeFileSync("/tmp/review_id.txt",r.id);fs.writeFileSync("/tmp/payment_ref.txt",r.payment.reference);
+            console.log(JSON.stringify({reviewFound:true,reviewStatus:r.status,paymentStatus:r.payment.status,provider:r.payment.provider,receiptStored:r.hasReceipt===true},null,2));
+          '
+          echo "REVIEW_ID=$(cat /tmp/review_id.txt)" >> "$GITHUB_ENV"
+          echo "PAYMENT_REFERENCE=$(cat /tmp/payment_ref.txt)" >> "$GITHUB_ENV"
+
+      - name: Wait for explicit human approval
+        run: |
+          set -euo pipefail
+          echo "Open $BASE_URL/manual-payments as an AGENT/ADMIN and approve the pending Phase 29 TEST receipt."
+          echo "Do not use Issue Ticket or any ticket delivery action. This workflow only waits for the human review decision."
+          found=0
+          for attempt in $(seq 1 120); do
+            curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/manual-payments/$REVIEW_ID" -o /tmp/review.json
+            if node -e '
+              const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/review.json","utf8"));const r=x.row||{};
+              const ok=r.status==="APPROVED"&&r.payment?.status==="PAID";
+              if(ok)console.log(JSON.stringify({reviewStatus:r.status,paymentStatus:r.payment.status,humanReviewer:Boolean(r.reviewedById),reviewedAt:Boolean(r.reviewedAt)},null,2));
+              process.exit(ok?0:1)
+            '; then found=1; break; fi
+
+            if node -e '
+              const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/review.json","utf8"));const r=x.row||{};
+              if(["REJECTED","SUPERSEDED"].includes(r.status)){console.error(`Review ended in ${r.status}, not APPROVED`);process.exit(0)}process.exit(1)
+            '; then exit 4; fi
+            sleep 5
+          done
+          if [ "$found" != "1" ]; then echo "Timed out waiting for explicit human approval"; exit 1; fi
+
+      - name: Verify ticket was queued but not issued
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/queue.json","utf8"));const expected=`TKT-${process.env.PAYMENT_REFERENCE}`;
+            const rows=x.rows||[];const issued=x.issued||[];const q=rows.find(t=>t.reference===expected);const i=issued.find(t=>t.reference===expected);
+            if(!q){console.error("Expected ticket queue record not found",expected);process.exit(1)}
+            if(q.status!=="PENDING_MANUAL_ISSUE"){console.error("Unexpected ticket status",q.status);process.exit(1)}
+            if(i){console.error("SAFETY FAILURE: test ticket appears in recently issued list");process.exit(7)}
+            console.log(JSON.stringify({ticketQueued:true,ticketStatus:q.status,ticketIssued:false},null,2));
+          '
+
+      - name: Re-check protected gates remain OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings-final.json
+          node -e '
+            const fs=require("fs");const x=JSON.parse(fs.readFileSync("/tmp/settings-final.json","utf8"));const m=new Map((x.settings||[]).map(s=>[s.key,s]));
+            for(const k of ["payments.create_enabled","payments.manual_create_enabled","ticketing.write_enabled","payments.refunds_execute_enabled"]){const v=m.get(k)?.value;console.log(`${k} final: ${String(v)}`);if(v===true)process.exit(1)}
+          '
+
+      - name: Phase 30 complete
+        run: |
+          echo "Phase 30 passed - explicit human approval moved the TEST Zelle payment to PAID and queued a PENDING_MANUAL_ISSUE ticket while ticket issuance remained disabled."
