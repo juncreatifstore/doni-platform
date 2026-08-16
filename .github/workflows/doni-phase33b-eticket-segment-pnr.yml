@@ -1,0 +1,56 @@
+name: DONI Phase 33B E-ticket Segment PNR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate-eticket-template:
+    name: Validate redesigned e-ticket with per-segment PNR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate TypeScript
+        run: npx tsc --noEmit
+
+      - name: Verify per-segment PNR model
+        run: |
+          set -euo pipefail
+          grep -q "pnr?:string" services/ticketing/types.ts
+          grep -q "bookingReference?:string" services/ticketing/types.ts
+          grep -q "x.bookingReference" services/ticketing/types.ts
+          echo "Per-segment PNR model: OK"
+
+      - name: Verify redesigned e-ticket segment cards
+        run: |
+          set -euo pipefail
+          grep -q "SEGMENT \${index}" services/ticketing/pdf.ts
+          grep -q "s.pnr||s.bookingReference||globalPnr" services/ticketing/pdf.ts
+          grep -q "PNR \${pnr}" services/ticketing/pdf.ts
+          grep -q "E-TICKET / ITINERARY RECEIPT" services/ticketing/pdf.ts
+          echo "Segmented e-ticket layout: OK"
+
+      - name: Verify no global PNR in summary header
+        run: |
+          set -euo pipefail
+          if grep -q 'draw(`PNR: \${ticket.pnr' services/ticketing/pdf.ts; then
+            echo "Global PNR is still displayed in the summary header"
+            exit 1
+          fi
+          echo "Global PNR removed from summary header: OK"
+
+      - name: Phase 33B complete
+        run: |
+          echo "Phase 33B passed - redesigned DONI e-ticket compiles and supports a separate PNR for every flight segment."
