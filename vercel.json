@@ -9,6 +9,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/workspace-automation",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/session-cleanup",
       "schedule": "17 * * * *"
     },
