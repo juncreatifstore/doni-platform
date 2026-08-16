@@ -1,0 +1,131 @@
+name: DONI Phase 36 Controlled Post-booking Actions
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  validate-post-booking-actions:
+    name: Validate reservations UI, check-in window and controlled resend
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify safety gates start OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["ticketing.write_enabled","ticketing.delivery_enabled","whatsapp.enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","payments.create_enabled","payments.manual_create_enabled"]){
+              console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(7);
+            }
+          '
+
+      - name: Find issued TEST reservation
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs");const x=require("/tmp/queue.json");
+            const rows=(x.issued||[]).filter(t=>t.pnr==="TST32X");rows.sort((a,b)=>new Date(b.issuedAt)-new Date(a.issuedAt));const t=rows[0];
+            if(!t)process.exit(3);fs.writeFileSync("/tmp/ref",t.reference);console.log(t.reference);
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ref)" >> "$GITHUB_ENV"
+
+      - name: Validate live reservation state with resend locked
+        run: |
+          set -euo pipefail
+          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/post-booking/reservations?reference=$ref" -o /tmp/res.json
+          node -e '
+            const x=require("/tmp/res.json");const r=(x.rows||[])[0];if(!x.success||!r)process.exit(1);
+            const pnrs=(r.segments||[]).map(s=>s.pnr||s.bookingReference);
+            if(pnrs[0]!=="VQ7K2A"||pnrs[1]!=="JH9M5B")throw new Error("segment_pnr_mismatch");
+            if(r.resendEnabled!==false)throw new Error("resend_should_be_locked");
+            if(r.alertsEnabled!==false||r.disruptionAlertsEnabled!==false)throw new Error("alerts_must_remain_off");
+            if(!Array.isArray(r.tracking)||r.tracking.length<2)throw new Error("tracking_missing");
+            if(!["OPEN","NOT_OPEN_YET","CLOSED"].includes(r.checkinWindow))throw new Error("invalid_checkin_window");
+            console.log(JSON.stringify({reference:r.reference,checkinWindow:r.checkinWindow,hoursToDeparture:r.hoursToDeparture,resendEnabled:r.resendEnabled,hasDisruption:r.hasDisruption,tracking:r.tracking.map(t=>({flight:`${t.airlineCode}${t.flightNumber}`,status:t.flightStatus,delayMinutes:t.delayMinutes,gate:t.gate,terminal:t.terminal}))},null,2));
+          '
+
+      - name: Validate Mes reservations portal and targeted check-in page
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/reservations.html -w '%{http_code}' "$BASE_URL/reservations")
+          echo "Reservations page HTTP $code"; test "$code" = "200"
+          grep -q "Mes réservations" /tmp/reservations.html
+          grep -q "$TICKET_REFERENCE" /tmp/reservations.html
+          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/checkin.html -w '%{http_code}' "$BASE_URL/checkin?reference=$ref")
+          echo "Targeted check-in HTTP $code"; test "$code" = "200"
+          grep -q "$TICKET_REFERENCE" /tmp/checkin.html
+
+      - name: Enable one controlled e-ticket resend
+        run: |
+          set -euo pipefail
+          for pair in 'ticketing.delivery_enabled true' 'whatsapp.enabled true'; do
+            key=$(echo "$pair"|awk '{print $1}'); val=$(echo "$pair"|awk '{print $2}')
+            body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:process.argv[2]==="true"}))' "$key" "$val")
+            curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+            node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+          done
+
+      - name: Verify portal backend sees resend enabled
+        run: |
+          set -euo pipefail
+          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/post-booking/reservations?reference=$ref" -o /tmp/res2.json
+          node -e 'const x=require("/tmp/res2.json");const r=(x.rows||[])[0];if(!r||r.resendEnabled!==true)throw new Error("resend_not_enabled_in_portal")'
+
+      - name: Resend final e-ticket through WhatsApp
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/delivery.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/ticketing/deliver")
+          echo "Delivery HTTP $code"; cat /tmp/delivery.json; test "$code" = "200"
+          node -e '
+            const x=require("/tmp/delivery.json");const wa=(x.results||[]).find(r=>r.channel==="whatsapp");
+            if(!wa||wa.ok!==true)throw new Error(`whatsapp_resend_failed:${JSON.stringify(wa||null)}`);
+            if(!["DELIVERED","PARTIAL"].includes(x.status))throw new Error(`unexpected_delivery_status:${x.status}`);
+          '
+
+      - name: Cleanup delivery gates
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in ticketing.delivery_enabled whatsapp.enabled ticketing.write_enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+
+      - name: Verify final safety state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["ticketing.write_enabled","ticketing.delivery_enabled","whatsapp.enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled"]){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(1)}
+          '
+
+      - name: Phase 36 complete
+        run: echo "Phase 36 passed - Mes reservations shows live operational status, check-in window is independent from automatic alerts, one controlled e-ticket resend succeeded, and all send/write gates returned OFF."
