@@ -23,6 +23,21 @@ export function disruptionMessage(t:any,type:FlightDisruptionType,delay:number){
   return (m[lang]||m.fr)[type]||m.fr.delay;
 }
 
+export function disruptionAlertState(existingStatus:string|null|undefined){
+  return String(existingStatus||'').toLowerCase()==='sent'?'sent':'pending';
+}
+
+async function queueDisruptionAlert(tracking:any,key:string,type:FlightDisruptionType,delayMinutes:number){
+  const recipient=tracking.clientPhone||null;
+  if(!recipient)return null;
+  const alertType=`disruption:${key}`;
+  const current:any=await (db as any).flightAlert.findUnique({where:{trackingId_alertType:{trackingId:tracking.id,alertType}}}).catch(()=>null);
+  if(current?.status==='sent')return current;
+  const data={scheduledAt:new Date(),language:tracking.clientLanguage||'fr',recipient,message:disruptionMessage(tracking,type,delayMinutes),error:null};
+  if(current)return (db as any).flightAlert.update({where:{id:current.id},data:{...data,status:'pending'}}).catch(()=>current);
+  return (db as any).flightAlert.create({data:{trackingId:tracking.id,alertType,status:'pending',...data}}).catch(()=>null);
+}
+
 export async function upsertFlightIncident(tracking:any,previousStatus:string|null,newStatus:string,delayMinutes:number|null){
  const type=classifyFlightDisruption(newStatus,delayMinutes);if(!type)return null;
  const key=type==='delay'?`delay-${Math.floor(Math.max(30,Number(delayMinutes||0))/30)*30}`:type;
@@ -30,7 +45,7 @@ export async function upsertFlightIncident(tracking:any,previousStatus:string|nu
  const title=type==='cancelled'?`Vol ${tracking.airlineCode}${tracking.flightNumber} annulé`:type==='diverted'?`Vol ${tracking.airlineCode}${tracking.flightNumber} dérouté`:`Retard ${tracking.airlineCode}${tracking.flightNumber}`;
  const message=type==='delay'?`${tracking.origin} → ${tracking.destination} · retard estimé ${delayMinutes||0} min`:`${tracking.origin} → ${tracking.destination} · statut ${newStatus}`;
  const row=await (db as any).flightIncident.upsert({where:{trackingId_incidentKey:{trackingId:tracking.id,incidentKey:key}},create:{trackingId:tracking.id,incidentKey:key,incidentType:type,severity,status:'open',title,message,metadata:{previousStatus,newStatus,delayMinutes}},update:{severity,status:'open',title,message,metadata:{previousStatus,newStatus,delayMinutes},resolvedAt:null}}).catch(()=>null);
- if(row&&await getSetting<boolean>('tracking.disruption_alerts_enabled')){const recipient=tracking.clientPhone||null;if(recipient)await (db as any).flightAlert.upsert({where:{trackingId_alertType:{trackingId:tracking.id,alertType:`disruption:${key}`}},create:{trackingId:tracking.id,alertType:`disruption:${key}`,status:'pending',scheduledAt:new Date(),language:tracking.clientLanguage||'fr',recipient,message:disruptionMessage(tracking,type,Number(delayMinutes||0))},update:{status:'pending',scheduledAt:new Date(),recipient,message:disruptionMessage(tracking,type,Number(delayMinutes||0)),error:null}}).catch(()=>null);}
+ if(row&&await getSetting<boolean>('tracking.disruption_alerts_enabled'))await queueDisruptionAlert(tracking,key,type,Number(delayMinutes||0));
  return row;
 }
 
