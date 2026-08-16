@@ -5,6 +5,7 @@ import {listMarketingLeads} from '@/lib/workspace/marketing';
 import {listMarketingCampaigns} from '@/lib/workspace/marketing-campaigns';
 import {listMarketingStudio} from '@/lib/workspace/marketing-studio';
 import {listMarketingPartnerships} from '@/lib/workspace/marketing-partnerships';
+import {assetGovernance,listMarketingAssets} from '@/lib/workspace/marketing-assets';
 
 const DAY=24*60*60*1000;
 function overdue(value?:string|null){return Boolean(value&&new Date(value).getTime()<=Date.now());}
@@ -21,7 +22,7 @@ async function notify(recipients:string[],input:{title:string;message:string;sev
  return count;
 }
 export async function runMarketingAutomation(){
- const [leads,campaigns,studio,partnerships,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),fallbackRecipients()]);
+ const [leads,campaigns,studio,partnerships,assets,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),listMarketingAssets(),fallbackRecipients()]);
  let notifications=0;
  for(const lead of leads){
   if(['CONVERTED','LOST'].includes(lead.status)||!overdue(lead.nextFollowUpAt))continue;
@@ -45,5 +46,11 @@ export async function runMarketingAutomation(){
   const recipients=p.ownerId?[p.ownerId]:fallback;
   notifications+=await notify(recipients,{title:`Partenariat à relancer · ${p.name}`,message:`${p.nextAction||'Prochaine action à effectuer'} · statut ${p.status}.`,severity:'WARNING',href:'/marketing/partnerships',dedupeKey:`marketing:partnership:${p.id}:${p.nextActionAt}`});
  }
- return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true}};
+ for(const asset of assets){
+  const g=assetGovernance(asset);
+  if(g.reason==='RIGHTS_EXPIRED')notifications+=await notify(fallback,{title:`Droits expirés · ${asset.title}`,message:'Cet asset ne doit plus être utilisé tant que les droits ne sont pas renouvelés ou la ressource remplacée.',severity:'CRITICAL',href:'/marketing/assets',dedupeKey:`marketing:asset-expired:${asset.id}:${asset.expiresAt}`});
+  else if(g.expiresSoon)notifications+=await notify(fallback,{title:`Droits bientôt expirés · ${asset.title}`,message:`Les droits expirent le ${asset.expiresAt?new Date(asset.expiresAt).toLocaleDateString('fr-FR'):'bientôt'}. Vérifier le renouvellement avant réutilisation.`,severity:'WARNING',href:'/marketing/assets',dedupeKey:`marketing:asset-expiring:${asset.id}:${asset.expiresAt}`});
+  if(g.reason==='APPROVAL_REQUIRED')notifications+=await notify(fallback,{title:`Validation requise · ${asset.title}`,message:`Usage ${asset.usage} demandé mais asset non approuvé. Une validation Marketing est obligatoire avant usage externe.`,severity:'WARNING',href:'/marketing/assets',dedupeKey:`marketing:asset-approval:${asset.id}:${asset.status}:${asset.usage}`});
+ }
+ return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true,assetRights:true,assetApproval:true,assetExpiryWarningDays:14}};
 }
