@@ -50,7 +50,7 @@ jobs:
             fs.writeFileSync("/tmp/ref",t.reference);console.log(t.reference);
           '
           echo "TICKET_REFERENCE=$(cat /tmp/ref)" >> "$GITHUB_ENV"
-          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          ref=$(python3 -c 'import urllib.parse;print(urllib.parse.quote(open("/tmp/ref").read().strip()))')
           curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/post-booking/reservations?reference=$ref" -o /tmp/res.json
           node -e 'const x=require("/tmp/res.json");const r=(x.rows||[])[0];if(!r||!Array.isArray(r.tracking)||r.tracking.length<1)throw new Error("tracking_not_ready")'
 
