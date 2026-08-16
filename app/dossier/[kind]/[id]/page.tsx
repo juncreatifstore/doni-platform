@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {notFound} from 'next/navigation';
 import {DoniShell} from '@/components/DoniShell';
+import {CaseWorkspacePanel} from '@/components/workspace/CaseWorkspacePanel';
 import {requirePageUser} from '@/lib/auth/session';
 import {getCase360,type CaseKind} from '@/services/workspace/case-360';
 export const dynamic='force-dynamic';
@@ -16,6 +17,7 @@ export default async function Page({params}:{params:Promise<{kind:string;id:stri
  <div className="card caseSummary"><span>Billet / PNR</span><strong>{d.ticket?.reference||'—'}</strong><small>{d.ticket?`${d.ticket.pnr||'PNR —'} · ${d.ticket.ticketNumber||'Ticket —'} · ${d.ticket.status}`:'Aucun billet lié'}</small></div>
  <div className="card caseSummary"><span>Flight Ops</span><strong>{d.flight?`${d.flight.airlineCode}${d.flight.flightNumber}`:'—'}</strong><small>{d.flight?`${d.flight.origin}→${d.flight.destination} · ${d.flight.flightStatus}`:'Aucun suivi actif'}</small></div>
 </div>
+<CaseWorkspacePanel kind={kind} id={id}/>
 <div className="caseMainGrid"><section><h2 className="sectionTitle">Parcours du dossier</h2><div className="card caseTimeline">{d.timeline.map((x:any,i:number)=><div className="caseTimelineRow" key={`${x.at}-${i}`}><div className="caseTimelineDot"/><div><div className="caseTimelineTop"><strong>{x.title}</strong><span>{fmt(x.at)}</span></div><small>{x.type}{x.detail?` · ${x.detail}`:''}</small></div></div>)}{!d.timeline.length?<div className="emptyState">Aucun événement disponible.</div>:null}</div></section>
 <aside className="caseSide"><h2 className="sectionTitle">Actions & risques</h2><div className="card casePanel"><div className="casePanelTitle">Tâches actives <b>{d.tasks.filter((t:any)=>t.status!=='DONE').length}</b></div>{d.tasks.filter((t:any)=>t.status!=='DONE').slice(0,8).map((t:any)=><Link href={`/tasks?focus=${encodeURIComponent(t.id)}`} className="caseMiniRow" key={t.id}><div><strong>{t.title}</strong><small>{t.assigneeName||'Non assignée'} · {t.department}</small></div><span className={`badge ${t.priority==='URGENT'?'badBadge':t.priority==='HIGH'?'warn':'ok'}`}>{t.priority}</span></Link>)}{!d.tasks.filter((t:any)=>t.status!=='DONE').length?<div className="emptyState">Aucune tâche active.</div>:null}</div>
 <div className="card casePanel"><div className="casePanelTitle">Incidents Flight Ops <b>{d.incidents.length}</b></div>{d.incidents.slice(0,6).map((x:any)=><div className="caseMiniRow" key={x.id}><div><strong>{x.title}</strong><small>{x.incidentType} · {fmt(x.createdAt)}</small></div><span className={`badge ${statusClass(x.severity)}`}>{x.status}</span></div>)}{!d.incidents.length?<div className="emptyState">Aucun incident lié.</div>:null}</div></aside></div>
