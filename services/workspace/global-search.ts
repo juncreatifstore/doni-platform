@@ -4,6 +4,7 @@ export type GlobalSearchResult={id:string;type:'CLIENT'|'PAYMENT'|'TICKET'|'POST
 const prisma:any=db;
 function clean(q:string){return q.trim().slice(0,80)}
 function includes(v:unknown,q:string){return String(v??'').toLowerCase().includes(q.toLowerCase())}
+function dossier(type:GlobalSearchResult['type'],id:string){return `/dossier/${type}/${encodeURIComponent(id)}`}
 
 export async function globalWorkspaceSearch(raw:string):Promise<GlobalSearchResult[]>{
  const q=clean(raw);if(q.length<2)return [];
@@ -16,11 +17,11 @@ export async function globalWorkspaceSearch(raw:string):Promise<GlobalSearchResu
   prisma.appSetting.findMany({where:{category:'Workspace Tasks',key:{startsWith:'workspace.task.'}},take:250,orderBy:{updatedAt:'desc'},select:{value:true}}).catch(()=>[]),
  ]);
  const results:GlobalSearchResult[]=[];
- for(const c of clients)results.push({id:c.id,type:'CLIENT',title:c.displayName||c.customerCode,subtitle:`${c.customerCode} · ${c.phone}`,meta:[c.email,c.country].filter(Boolean).join(' · ')||null,href:`/customers?focus=${encodeURIComponent(c.id)}`});
- for(const p of payments)results.push({id:p.id,type:'PAYMENT',title:`Paiement ${p.reference}`,subtitle:`${p.provider} · ${Number(p.amount).toFixed(2)} ${p.currency}`,meta:p.status,href:`/finance?focus=${encodeURIComponent(p.id)}`});
- for(const t of tickets)results.push({id:t.id,type:'TICKET',title:`Billet ${t.reference}`,subtitle:[t.pnr&&`PNR ${t.pnr}`,t.ticketNumber].filter(Boolean).join(' · ')||'Billet',meta:`${t.status} · ${t.deliveryStatus}`,href:`/ticketing?focus=${encodeURIComponent(t.id)}`});
- for(const p of post)results.push({id:p.id,type:'POST_BOOKING',title:`Après-vente ${p.reference}`,subtitle:`${p.requestType}${p.phone?` · ${p.phone}`:''}`,meta:p.status,href:`/post-booking?focus=${encodeURIComponent(p.id)}`});
- for(const f of flights)results.push({id:f.id,type:'FLIGHT',title:`${f.airlineCode}${f.flightNumber} · ${f.origin}→${f.destination}`,subtitle:[f.ticketReference,f.pnr&&`PNR ${f.pnr}`].filter(Boolean).join(' · ')||'Suivi de vol',meta:f.flightStatus,href:`/flight-ops?focus=${encodeURIComponent(f.id)}`});
- for(const row of settings){const t=row.value as any;if(!t||typeof t!=='object'||!t.id||!t.title)continue;if(![t.title,t.description,t.entityId,t.assigneeName,t.department].some(v=>includes(v,q)))continue;results.push({id:String(t.id),type:'TASK',title:String(t.title),subtitle:`${t.department||'Tâche'} · ${t.assigneeName||'Non assignée'}`,meta:`${t.priority||'NORMAL'} · ${t.status||'OPEN'}`,href:`/tasks?focus=${encodeURIComponent(String(t.id))}`});if(results.filter(x=>x.type==='TASK').length>=6)break;}
+ for(const c of clients)results.push({id:c.id,type:'CLIENT',title:c.displayName||c.customerCode,subtitle:`${c.customerCode} · ${c.phone}`,meta:[c.email,c.country].filter(Boolean).join(' · ')||null,href:dossier('CLIENT',c.id)});
+ for(const p of payments)results.push({id:p.id,type:'PAYMENT',title:`Paiement ${p.reference}`,subtitle:`${p.provider} · ${Number(p.amount).toFixed(2)} ${p.currency}`,meta:p.status,href:dossier('PAYMENT',p.id)});
+ for(const t of tickets)results.push({id:t.id,type:'TICKET',title:`Billet ${t.reference}`,subtitle:[t.pnr&&`PNR ${t.pnr}`,t.ticketNumber].filter(Boolean).join(' · ')||'Billet',meta:`${t.status} · ${t.deliveryStatus}`,href:dossier('TICKET',t.id)});
+ for(const p of post)results.push({id:p.id,type:'POST_BOOKING',title:`Après-vente ${p.reference}`,subtitle:`${p.requestType}${p.phone?` · ${p.phone}`:''}`,meta:p.status,href:dossier('POST_BOOKING',p.id)});
+ for(const f of flights)results.push({id:f.id,type:'FLIGHT',title:`${f.airlineCode}${f.flightNumber} · ${f.origin}→${f.destination}`,subtitle:[f.ticketReference,f.pnr&&`PNR ${f.pnr}`].filter(Boolean).join(' · ')||'Suivi de vol',meta:f.flightStatus,href:dossier('FLIGHT',f.id)});
+ for(const row of settings){const t=row.value as any;if(!t||typeof t!=='object'||!t.id||!t.title)continue;if(![t.title,t.description,t.entityId,t.assigneeName,t.department].some(v=>includes(v,q)))continue;results.push({id:String(t.id),type:'TASK',title:String(t.title),subtitle:`${t.department||'Tâche'} · ${t.assigneeName||'Non assignée'}`,meta:`${t.priority||'NORMAL'} · ${t.status||'OPEN'}`,href:dossier('TASK',String(t.id))});if(results.filter(x=>x.type==='TASK').length>=6)break;}
  return results.slice(0,30);
 }
