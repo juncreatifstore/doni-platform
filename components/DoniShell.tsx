@@ -20,6 +20,7 @@ const groups:NavGroup[]=[
   {href:'/flow-tracker',icon:'↗',label:'Parcours client',departments:['RESERVATIONS','CUSTOMER_SERVICE','MARKETING','OPERATIONS','MANAGEMENT']},
  ]},
  {label:'Service client',items:[
+  {href:'/service-client',icon:'◌',label:'Centre service client',departments:['CUSTOMER_SERVICE','OPERATIONS','MANAGEMENT']},
   {href:'/post-booking',icon:'◇',label:'Après-vente',departments:['CUSTOMER_SERVICE','TICKETING','OPERATIONS','MANAGEMENT']},
   {href:'/checkin',icon:'✓',label:'Check-in',departments:['CUSTOMER_SERVICE','FLIGHT_OPS','OPERATIONS','MANAGEMENT']},
   {href:'/baggage',icon:'□',label:'Bagages',departments:['CUSTOMER_SERVICE','FLIGHT_OPS','OPERATIONS','MANAGEMENT']},
@@ -31,7 +32,7 @@ const groups:NavGroup[]=[
  ]},
  {label:'Finance',items:[
   {href:'/manual-payments',icon:'$',label:'Paiements manuels',departments:['FINANCE','OPERATIONS','MANAGEMENT']},
-  {href:'/finance',icon:'◫',label:'Centre financier',departments:['FINANCE','MANAGEMENT']},
+  {href:'/finance',icon:'◫',label:'Centre financier',departments:['FINANCE','OPERATIONS','MANAGEMENT']},
  ]},
  {label:'Marketing',items:[
   {href:'/marketing',icon:'◇',label:'Centre marketing',departments:['MARKETING','MANAGEMENT']},
