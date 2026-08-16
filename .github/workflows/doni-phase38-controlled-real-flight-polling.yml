@@ -1,0 +1,118 @@
+name: DONI Phase 38 Controlled Real Flight Polling
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Production URL
+        required: true
+        default: https://doni-platform.vercel.app
+
+jobs:
+  controlled-real-poll:
+    name: Poll real FlightAware data for TEST ticket only
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      DONI_ADMIN_USERNAME: ${{ secrets.DONI_ADMIN_USERNAME }}
+      DONI_ADMIN_PASSWORD: ${{ secrets.DONI_ADMIN_PASSWORD }}
+
+    steps:
+      - name: Authenticate SUPER_ADMIN
+        run: |
+          set -euo pipefail
+          payload=$(node -e 'process.stdout.write(JSON.stringify({username:process.env.DONI_ADMIN_USERNAME,password:process.env.DONI_ADMIN_PASSWORD}))')
+          code=$(curl -sS -c /tmp/doni-cookies.txt -o /tmp/login.json -w '%{http_code}' -H 'content-type: application/json' --data "$payload" "$BASE_URL/api/auth/login")
+          echo "Login HTTP $code"
+          test "$code" = "200"
+          node -e 'const x=require("/tmp/login.json");if(!x.success||x.role!=="SUPER_ADMIN")process.exit(1)'
+
+      - name: Verify cron, alert and send gates start OFF
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/settings.json
+          node -e '
+            const x=require("/tmp/settings.json");const m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            const keys=["tracking.enabled","tracking.test_poll_enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","tracking.test_alert_enabled","whatsapp.enabled","ticketing.write_enabled","ticketing.delivery_enabled","payments.create_enabled"];
+            for(const k of keys){console.log(`${k}: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(7)}
+          '
+
+      - name: Find issued TEST ticket with tracking
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/ticketing/queue" -o /tmp/queue.json
+          node -e '
+            const fs=require("fs"),x=require("/tmp/queue.json");
+            const rows=(x.issued||[]).filter(t=>t.pnr==="TST32X");rows.sort((a,b)=>new Date(b.issuedAt)-new Date(a.issuedAt));const t=rows[0];
+            if(!t){console.error("Issued TEST ticket TST32X not found");process.exit(3)}
+            fs.writeFileSync("/tmp/ref",t.reference);console.log(t.reference);
+          '
+          echo "TICKET_REFERENCE=$(cat /tmp/ref)" >> "$GITHUB_ENV"
+
+      - name: Verify controlled polling endpoint is locked by default
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/locked.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/flight-ops/poll-test")
+          echo "Locked poll HTTP $code"; cat /tmp/locked.json
+          test "$code" = "403"
+          node -e 'const x=require("/tmp/locked.json");if(x.error!=="tracking_test_poll_disabled")process.exit(1)'
+
+      - name: Enable only targeted real polling gate
+        run: |
+          set -euo pipefail
+          body='{"key":"tracking.test_poll_enabled","value":true}'
+          curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" -o /tmp/set.json
+          node -e 'const x=require("/tmp/set.json");if(!x.success)process.exit(1)'
+
+      - name: Poll FlightAware for TEST ticket only
+        run: |
+          set -euo pipefail
+          body=$(node -e 'process.stdout.write(JSON.stringify({reference:process.env.TICKET_REFERENCE}))')
+          code=$(curl -sS -b /tmp/doni-cookies.txt -o /tmp/poll.json -w '%{http_code}' -H 'content-type: application/json' -X POST --data "$body" "$BASE_URL/api/flight-ops/poll-test")
+          echo "Controlled poll HTTP $code"; cat /tmp/poll.json
+          test "$code" = "200"
+          node -e '
+            const x=require("/tmp/poll.json");if(!x.success)process.exit(1);
+            console.log(JSON.stringify({reference:x.reference,polled:x.polled,succeeded:x.succeeded,failed:x.failed,results:x.results},null,2));
+            if(!Array.isArray(x.results)||x.polled<1)throw new Error("no_tracking_rows_polled");
+            if(x.succeeded<1){const errors=x.results.map(r=>r.error).filter(Boolean);throw new Error(`no_real_provider_success:${errors.join(",")}`)}
+            if(x.results.some(r=>r.error==="route_mismatch"))throw new Error("provider_route_mismatch");
+          '
+
+      - name: Verify real tracking data persisted while alerts remain OFF
+        run: |
+          set -euo pipefail
+          ref=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["TICKET_REFERENCE"]))')
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/post-booking/reservations?reference=$ref" -o /tmp/res.json
+          node -e '
+            const x=require("/tmp/res.json"),r=(x.rows||[])[0];if(!r)process.exit(1);
+            const checked=(r.tracking||[]).filter(t=>t.lastCheckAt);
+            console.log(JSON.stringify({trackingRows:(r.tracking||[]).length,checkedRows:checked.length,statuses:(r.tracking||[]).map(t=>({flight:`${t.airlineCode}${t.flightNumber}`,status:t.flightStatus,delayMinutes:t.delayMinutes,gate:t.gate,terminal:t.terminal,lastCheckAt:t.lastCheckAt})),alertsEnabled:r.alertsEnabled,disruptionAlertsEnabled:r.disruptionAlertsEnabled},null,2));
+            if(checked.length<1)throw new Error("real_poll_not_persisted");
+            if(r.alertsEnabled!==false||r.disruptionAlertsEnabled!==false)throw new Error("production_alerts_must_remain_off");
+          '
+
+      - name: Cleanup targeted polling gate
+        if: always()
+        run: |
+          set +e
+          if [ -f /tmp/doni-cookies.txt ]; then
+            for key in tracking.test_poll_enabled tracking.enabled tracking.alerts_enabled tracking.disruption_alerts_enabled whatsapp.enabled; do
+              body=$(node -e 'process.stdout.write(JSON.stringify({key:process.argv[1],value:false}))' "$key")
+              curl -sS -b /tmp/doni-cookies.txt -H 'content-type: application/json' -X PUT --data "$body" "$BASE_URL/api/settings" >/dev/null || true
+            done
+          fi
+
+      - name: Verify final safety state
+        run: |
+          set -euo pipefail
+          curl -sS -b /tmp/doni-cookies.txt "$BASE_URL/api/settings" -o /tmp/final.json
+          node -e '
+            const x=require("/tmp/final.json"),m=new Map((x.settings||[]).map(s=>[s.key,s.value]));
+            for(const k of ["tracking.test_poll_enabled","tracking.enabled","tracking.alerts_enabled","tracking.disruption_alerts_enabled","whatsapp.enabled"]){console.log(`${k} final: ${String(m.get(k))}`);if(m.get(k)===true)process.exit(1)}
+          '
+
+      - name: Phase 38 complete
+        run: echo "Phase 38 passed - real FlightAware data was polled only for the controlled TEST ticket, matching tracking state was persisted, the general cron remained disabled, no client alert was sent, and all polling/alert/send gates returned OFF."
