@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/marketing-publisher",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/session-cleanup",
       "schedule": "17 * * * *"
     },
