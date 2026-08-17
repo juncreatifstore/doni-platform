@@ -1,0 +1,25 @@
+import {redirect} from 'next/navigation';
+import {DoniShell} from '@/components/DoniShell';
+import {requirePageUser} from '@/lib/auth/session';
+import {canAccessMarketing} from '@/lib/auth/marketing-access';
+import {getMarketingSearchIntelligence} from '@/lib/workspace/marketing-search-intelligence';
+export const dynamic='force-dynamic';
+
+const levelLabel:Record<string,string>={VERY_HIGH:'Très forte',HIGH:'Forte',MEDIUM:'Moyenne',LOW:'Faible'};
+function dt(v:string){return new Date(v).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});}
+function priceList(rows:{currency:string;amount:number}[]){return rows.length?rows.map(x=>`${new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(x.amount)} ${x.currency}`).join(' · '):'Aucun prix disponible';}
+
+export default async function Page(){
+ const user=await requirePageUser('AGENT');if(!canAccessMarketing(user))redirect('/overview?forbidden=1');
+ const d=await getMarketingSearchIntelligence(30);
+ return <DoniShell title="Search Intelligence" active="/marketing/search-intelligence" user={user}>
+  <section className="workspaceWelcome"><div><span className="workspaceKicker">Marketing V2.1 · Intention réelle</span><h2>Historique des recherches & intention voyage</h2><p>DONI analyse les recherches réellement exécutées dans le tunnel de vol. Les prix affichés ici sont des observations datées, jamais une promesse de tarif actuel.</p></div></section>
+  <div className="marketingKpis"><div className="card"><span>Recherches · 30 j</span><strong>{d.metrics.searches}</strong></div><div className="card"><span>Clients identifiés</span><strong>{d.metrics.identified}</strong></div><div className="card"><span>Intentions fortes</span><strong>{d.metrics.highIntent}</strong></div><div className="card"><span>Vols sélectionnés</span><strong>{d.metrics.selected}</strong></div></div>
+  <div className="searchIntelGrid">
+   <section className="card searchIntelPanel"><div className="searchIntelHead"><div><span>Priorité commerciale</span><h3>Prospects par score d'intention</h3></div><small>Score 0–100</small></div>{d.opportunities.length?d.opportunities.map(x=><div className="intentRow" key={x.key}><div className={`intentScore ${x.level.toLowerCase().replace('_','-')}`}><strong>{x.score}</strong><span>{levelLabel[x.level]}</span></div><div className="intentCopy"><strong>{x.customer.displayName||x.customer.phone||'Client non identifié'}</strong><span>{x.latest.origin||'—'} → {x.latest.destination||'—'} · {x.searches} recherche{x.searches>1?'s':''}{x.selected?' · vol sélectionné':''}</span><small>Dernière recherche {dt(x.latest.searchedAt)} · départ {x.latest.departDate||'non défini'}{x.returningCustomer?' · ancien client':''}</small></div><div className="intentPrice"><span>Meilleur prix observé</span><strong>{priceList(x.latest.prices)}</strong></div></div>):<p className="muted">Les nouvelles recherches apparaîtront ici automatiquement.</p>}</section>
+   <aside className="card searchIntelPanel"><div className="searchIntelHead"><div><span>Demande</span><h3>Destinations les plus recherchées</h3></div></div>{d.destinations.length?d.destinations.map((x,i)=><div className="destinationRow" key={x.destination}><b>#{i+1}</b><div><strong>{x.destination}</strong><small>{x.people} client{x.people>1?'s':''} · {x.selected} sélection{x.selected>1?'s':''}</small></div><span>{x.searches} recherches</span></div>):<p className="muted">Pas encore de données sur 30 jours.</p>}</aside>
+  </div>
+  <section className="card searchHistoryCard"><div className="searchIntelHead"><div><span>Journal réel</span><h3>100 dernières recherches</h3></div><small>Observations tarifaires horodatées</small></div><div className="searchHistoryWrap"><table className="searchHistoryTable"><thead><tr><th>Date</th><th>Client</th><th>Trajet</th><th>Voyage</th><th>Offres</th><th>Prix observés</th><th>Action</th></tr></thead><tbody>{d.recent.map(x=><tr key={x.id}><td>{dt(x.searchedAt)}</td><td>{x.customerId?'Identifié':x.waId}</td><td><strong>{x.origin||'—'} → {x.destination||'—'}</strong></td><td>{x.departDate||'—'}{x.returnDate?` → ${x.returnDate}`:''}<small>{x.passengers} voyageur{x.passengers>1?'s':''}</small></td><td>{x.offersCount}<small>{x.providers.join(', ')||'Aucun fournisseur avec offre'}</small></td><td>{priceList(x.prices)}</td><td><span className={`badge ${x.selected?'ok':'warn'}`}>{x.selected?'Sélectionné':'Recherche'}</span></td></tr>)}</tbody></table></div>{!d.recent.length?<div className="emptyState">Aucune recherche enregistrée dans la période. Les prochaines recherches du tunnel seront capturées automatiquement.</div>:null}</section>
+  <section className="card priceObservationCard"><div><span>Repères tarifaires</span><h3>Plus bas prix observé par route et devise</h3><p>Ces montants servent à détecter des opportunités. Ils doivent être repricés avant toute offre au client.</p></div><div className="priceObservationGrid">{d.priceObservations.map(x=><div key={`${x.route}-${x.currency}`}><span>{x.route}</span><strong>{new Intl.NumberFormat('fr-FR',{maximumFractionDigits:2}).format(x.amount)} {x.currency}</strong></div>)}</div></section>
+ </DoniShell>;
+}
