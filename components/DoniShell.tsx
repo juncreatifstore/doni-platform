@@ -51,6 +51,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/abandoned-bookings',icon:'↺',label:'Abandoned Booking Recovery',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/live-offers',icon:'⚡',label:'Live Offers Engine',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/ai-copilot',icon:'✦',label:'DONI Marketing AI Copilot',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/autopilot',icon:'⇥',label:'Marketing Autopilot contrôlé',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/content',icon:'▦',label:'Calendrier contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/studio',icon:'✦',label:'Studio de contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/publishing',icon:'⇧',label:'File de publication',departments:['MARKETING','MANAGEMENT']},
