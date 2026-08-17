@@ -48,6 +48,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/team',icon:'♙',label:'Équipe Marketing',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/leads',icon:'◎',label:'Leads & Prospects',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/search-intelligence',icon:'⌕',label:'Search Intelligence',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/abandoned-bookings',icon:'↺',label:'Abandoned Booking Recovery',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/content',icon:'▦',label:'Calendrier contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/studio',icon:'✦',label:'Studio de contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/publishing',icon:'⇧',label:'File de publication',departments:['MARKETING','MANAGEMENT']},
