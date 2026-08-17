@@ -7,6 +7,7 @@ import {getMarketingDeliveryDashboard} from '@/lib/workspace/marketing-delivery-
 import {getMarketingLearningLoop} from '@/lib/workspace/marketing-learning-loop';
 import {getMarketingExperiments} from '@/lib/workspace/marketing-experiments';
 
+// Deployment sync marker: command-center field references verified on main.
 type CheckLevel='PASS'|'WARNING'|'CRITICAL';
 type ReadinessCheck={id:string;label:string;level:CheckLevel;detail:string;route:string};
 
