@@ -2,6 +2,7 @@ import {getSetting} from '@/lib/settings/service';
 import {marketingCampaignPrefill} from '@/lib/workspace/marketing-booking-handoff';
 
 export type FacebookPublishInput={itemId:string;message:string};
+export type FacebookPublishResult={sent:boolean;dryRun:boolean;pageId:string|null;message:string;whatsappLink:string|null;postId:string|null;response?:unknown};
 
 function digitsOnly(value:string){return String(value||'').replace(/\D+/g,'');}
 
@@ -13,7 +14,7 @@ export async function buildFacebookWhatsAppLink(itemId:string){
  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
-export async function publishFacebookPagePost(input:FacebookPublishInput){
+export async function publishFacebookPagePost(input:FacebookPublishInput):Promise<FacebookPublishResult>{
  const [enabled,pageId,token,graphVersion]=await Promise.all([
   getSetting<boolean>('facebook.enabled'),
   getSetting<string>('facebook.page_id'),
@@ -22,12 +23,12 @@ export async function publishFacebookPagePost(input:FacebookPublishInput){
  ]);
  const whatsappLink=await buildFacebookWhatsAppLink(input.itemId);
  const message=whatsappLink?`${input.message}\n\n📲 Vérifier le tarif et réserver avec DONI : ${whatsappLink}`:input.message;
- if(!enabled)return{sent:false,dryRun:true,pageId:pageId||null,message,whatsappLink};
+ if(!enabled)return{sent:false,dryRun:true,pageId:pageId||null,message,whatsappLink,postId:null};
  if(!pageId||!token)throw new Error('Facebook Page credentials missing');
  const version=String(graphVersion||'v23.0').replace(/^\/+|\/+$/g,'');
  const body=new URLSearchParams({message,access_token:token});
  const res=await fetch(`https://graph.facebook.com/${version}/${encodeURIComponent(pageId)}/feed`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
  const json=await res.json().catch(()=>({}));
  if(!res.ok)throw new Error(`Facebook publish failed: ${res.status} ${JSON.stringify(json)}`);
- return{sent:true,dryRun:false,pageId,message,whatsappLink,postId:String((json as any)?.id||''),response:json};
+ return{sent:true,dryRun:false,pageId,message,whatsappLink,postId:String((json as any)?.id||'')||null,response:json};
 }
