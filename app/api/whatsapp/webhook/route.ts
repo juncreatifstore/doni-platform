@@ -44,7 +44,7 @@ export async function POST(req:Request){
    await db.doniConversation.update({where:{id:session.id},data:{lastMessageAt:new Date()}});
    const preference=contentType==='text'?await handleMarketingPreferenceCommand(m.waId,m.text).catch(()=>({handled:false} as const)):{handled:false} as const;
    if(preference.handled){const delivery=await sendWhatsAppText(m.waId,preference.reply);const providerMessageId=(delivery as any)?.response?.messages?.[0]?.id??null;await recordMessage({conversationId:session.id,direction:'OUTBOUND',senderType:'BOT',text:preference.reply,providerMessageId,metadata:{delivery,event:'marketing_preference',status:preference.status}});processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,marketingPreference:preference.status,delivery});continue;}
-   await recordMarketingReply(m.waId,m.messageId).catch(()=>null);
+   if(m.messageId)await recordMarketingReply(m.waId,m.messageId).catch(()=>null);
    if(session.status==='AGENT_HOLD'){
     processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,heldByAgent:true});
     continue;
