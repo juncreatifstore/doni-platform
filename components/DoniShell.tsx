@@ -54,6 +54,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/ai-copilot',icon:'✦',label:'DONI Marketing AI Copilot',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/autopilot',icon:'⇥',label:'Marketing Autopilot contrôlé',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/publisher-control',icon:'◉',label:'Publisher Control Center',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/meta-ads-publisher',icon:'%',label:'Meta Ads Publisher',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/consent',icon:'✓',label:'Consent & Opt-out',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/delivery-analytics',icon:'↗',label:'Delivery & Conversion',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/learning-loop',icon:'∞',label:'Marketing Learning Loop',departments:['MARKETING','MANAGEMENT']},
