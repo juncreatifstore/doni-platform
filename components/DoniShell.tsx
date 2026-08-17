@@ -58,6 +58,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/attribution',icon:'⇢',label:'Attribution ventes',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/performance',icon:'↗',label:'Performance',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/objectives',icon:'✓',label:'Objectifs marketing',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/weekly-review',icon:'≣',label:'Revue hebdomadaire',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/planning',icon:'▤',label:'Planification & Rapports',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/seasonality',icon:'◷',label:'Calendrier saisonnier',departments:['MARKETING','MANAGEMENT']},
  ]},
