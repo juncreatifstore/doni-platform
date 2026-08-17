@@ -1,0 +1,19 @@
+import {db} from '@/lib/db';
+import {decryptSecret} from '@/lib/settings/crypto';
+import {getSetting} from '@/lib/settings/service';
+import {getMarketingCampaign} from '@/lib/workspace/marketing-campaigns';
+import {getMetaAdsAdSetConfig} from '@/lib/workspace/meta-ads-adsets';
+import {getMetaAdsCreativeConfig} from '@/lib/workspace/meta-ads-creatives';
+import {getMetaAdsLaunchControl,recordMetaAdsActivated,recordMetaAdsLaunchFailure,recordMetaAdsPaused} from '@/lib/workspace/meta-ads-launch';
+import {getMetaAdsStatus} from '@/services/facebook/ads';
+
+const TOKEN_KEY='facebook.ads_access_token';
+function version(v:string|null|undefined){return String(v||'v23.0').replace(/^\/+|\/+$/g,'');}
+async function token(){const r:any=await db.appSetting.findUnique({where:{key:TOKEN_KEY}}).catch(()=>null);return r?.encryptedValue?decryptSecret(String(r.encryptedValue)):'';}
+async function graphPost(path:string,accessToken:string,v:string,params:Record<string,string>){const url=`https://graph.facebook.com/${version(v)}/${path.replace(/^\//,'')}`;const body=new URLSearchParams({...params,access_token:accessToken});const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,cache:'no-store'});const json:any=await res.json().catch(()=>({}));if(!res.ok)throw new Error(json?.error?.message||`Meta Graph ${res.status}`);return json;}
+
+async function prerequisites(campaignId:string){const [campaign,adSet,creative,launch,status,accessToken,v]=await Promise.all([getMarketingCampaign(campaignId),getMetaAdsAdSetConfig(campaignId),getMetaAdsCreativeConfig(campaignId),getMetaAdsLaunchControl(campaignId),getMetaAdsStatus(),token(),getSetting<string>('facebook.graph_version')]);if(!campaign||campaign.channel!=='META_ADS'||!campaign.metaAds)throw new Error('not_meta_ads');if(!campaign.metaAds.remoteCampaignId)throw new Error('meta_ads_remote_campaign_required');if(!adSet?.remoteAdSetId)throw new Error('meta_ads_remote_adset_required');if(!creative?.remoteAdId)throw new Error('meta_ads_remote_ad_required');if(!status.writeEnabled||status.account?.accountStatus!==1)throw new Error('meta_ads_write_not_ready');if(!accessToken)throw new Error('meta_ads_token_missing');return{campaign,adSet,creative,launch,status,accessToken,v:v||'v23.0'};}
+
+export async function activateMetaAdsCampaign(campaignId:string,actor:{id:string;username:string;role:string}){if(actor.role!=='SUPER_ADMIN')throw new Error('super_admin_required');const p=await prerequisites(campaignId);if(!p.launch||p.launch.status!=='APPROVED_FOR_LAUNCH')throw new Error('meta_ads_launch_approval_required');try{await graphPost(encodeURIComponent(p.creative.remoteAdId!),p.accessToken,p.v,{status:'ACTIVE'});await graphPost(encodeURIComponent(p.adSet.remoteAdSetId!),p.accessToken,p.v,{status:'ACTIVE'});await graphPost(encodeURIComponent(p.campaign.metaAds!.remoteCampaignId!),p.accessToken,p.v,{status:'ACTIVE'});await recordMetaAdsActivated(campaignId,actor);return{ok:true,status:'ACTIVE' as const};}catch(e){await recordMetaAdsLaunchFailure(campaignId,e instanceof Error?e.message:'meta_ads_activation_failed',actor.id).catch(()=>null);throw e;}}
+
+export async function pauseMetaAdsCampaign(campaignId:string,actor:{id:string;username:string;role:string}){if(actor.role!=='SUPER_ADMIN')throw new Error('super_admin_required');const p=await prerequisites(campaignId);try{await graphPost(encodeURIComponent(p.campaign.metaAds!.remoteCampaignId!),p.accessToken,p.v,{status:'PAUSED'});await graphPost(encodeURIComponent(p.adSet.remoteAdSetId!),p.accessToken,p.v,{status:'PAUSED'}).catch(()=>null);await graphPost(encodeURIComponent(p.creative.remoteAdId!),p.accessToken,p.v,{status:'PAUSED'}).catch(()=>null);await recordMetaAdsPaused(campaignId,actor);return{ok:true,status:'PAUSED' as const};}catch(e){await recordMetaAdsLaunchFailure(campaignId,e instanceof Error?e.message:'meta_ads_pause_failed',actor.id).catch(()=>null);throw e;}}
