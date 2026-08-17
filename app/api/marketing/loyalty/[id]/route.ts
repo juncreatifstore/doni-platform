@@ -1,0 +1,4 @@
+import {NextResponse} from 'next/server';
+import {requireApiUser} from '@/lib/auth/session';
+import {LOYALTY_STATUSES,LOYALTY_TIERS,updateMarketingLoyalty} from '@/lib/workspace/marketing-loyalty';
+export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});try{const {id}=await params;const b=await req.json();if(b.tier!==undefined&&!LOYALTY_TIERS.includes(b.tier))throw new Error('invalid_tier');if(b.status!==undefined&&!LOYALTY_STATUSES.includes(b.status))throw new Error('invalid_status');const item=await updateMarketingLoyalty(id,b,{userId:auth.user.id,userName:auth.user.fullName||auth.user.username});return NextResponse.json({success:true,item});}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'update_failed'},{status:400});}}
