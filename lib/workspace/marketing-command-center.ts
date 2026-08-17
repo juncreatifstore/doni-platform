@@ -44,7 +44,7 @@ export async function getMarketingCommandCenter(){
  const readiness=critical>0?'NOT_READY':warnings>0?'CONDITIONAL':'READY';
  const modules=[
   {name:'Search Intelligence',route:'/marketing/search-intelligence',status:'ACTIVE',primary:`${search.metrics.searches} recherches / 30j`,secondary:`${search.metrics.highIntent} forte intention`},
-  {name:'Abandoned Recovery',route:'/marketing/abandoned-bookings',status:'ACTIVE',primary:`${recovery.metrics.total} opportunités`,secondary:`${recovery.metrics.paymentAbandoned||0} paiement abandonné`},
+  {name:'Abandoned Recovery',route:'/marketing/abandoned-bookings',status:'ACTIVE',primary:`${recovery.metrics.total} opportunités`,secondary:`${recovery.metrics.PAYMENT_ABANDONED} paiement abandonné`},
   {name:'Live Offers',route:'/marketing/live-offers',status:duffel?'ACTIVE':'BLOCKED',primary:`${live.metrics.verified} offres vérifiées`,secondary:duffel?'Duffel connecté':'Duffel déconnecté'},
   {name:'Publisher',route:'/marketing/publisher-control',status:worker==='HEALTHY'?'ACTIVE':worker,primary:`${publisher.counts.SENT} envoyés`,secondary:`${publisher.counts.DEFERRED} différés · ${publisher.counts.FAILED} échecs`},
   {name:'Consent',route:'/marketing/consent',status:'ACTIVE',primary:`${consent.counts.OPTED_IN} opt-in · ${consent.counts.OPTED_OUT} opt-out`,secondary:consent.policy.requireExplicitConsent?'Mode strict ON':'Mode strict OFF'},
