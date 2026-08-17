@@ -51,6 +51,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/assets',icon:'□',label:'Bibliothèque assets',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/reviews',icon:'★',label:'Avis & Réputation',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/referrals',icon:'↻',label:'Parrainage & Fidélisation',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/loyalty',icon:'♥',label:'Fidélité client',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/campaigns',icon:'%',label:'Campagnes & Ads',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/partnerships',icon:'◆',label:'Partenariats & Terrain',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/attribution',icon:'⇢',label:'Attribution ventes',departments:['MARKETING','MANAGEMENT']},
