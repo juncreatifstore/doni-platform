@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 type Item={key:string;category:string;label:string;description?:string;type:string;value?:any;configured:boolean;source:string;secretStored:boolean;options?:string[];min?:number;max?:number};
-const integrations=[['Duffel','duffel'],['WhatsApp Meta','whatsapp'],['Stripe','stripe'],['Mercado Pago','mercadopago'],['PayPal','paypal'],['Brevo','brevo']] as const;
+const integrations=[['Duffel','duffel'],['WhatsApp Meta','whatsapp'],['Facebook Page','facebook'],['Stripe','stripe'],['Mercado Pago','mercadopago'],['PayPal','paypal'],['Brevo','brevo']] as const;
 export function SettingsCenter(){const [items,setItems]=useState<Item[]>([]);const [canSecrets,setCanSecrets]=useState(false);const [msg,setMsg]=useState('');const [busy,setBusy]=useState('');
  async function load(){const r=await fetch('/api/settings',{cache:'no-store'});const j=await r.json();if(j.success){setItems(j.settings);setCanSecrets(!!j.canEditSecrets)}}
  useEffect(()=>{load()},[]);
