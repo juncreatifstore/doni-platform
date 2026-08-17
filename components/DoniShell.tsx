@@ -43,6 +43,7 @@ const groups:NavGroup[]=[
  ]},
  {label:'Marketing',items:[
   {href:'/marketing',icon:'◇',label:'Dashboard marketing',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/command-center',icon:'◎',label:'Marketing Command Center',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/executive',icon:'◆',label:'Cockpit exécutif',minimum:'ADMIN'},
   {href:'/marketing/readiness',icon:'✓',label:'Marketing V1 Readiness',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/team',icon:'♙',label:'Équipe Marketing',departments:['MARKETING','MANAGEMENT']},
