@@ -1,5 +1,6 @@
 import {getSetting} from '@/lib/settings/service';
 import {handleMarketingPreferenceCommand} from '@/lib/workspace/marketing-consent';
+import {recordMarketingDeliveryStatus,recordMarketingReply} from '@/lib/workspace/marketing-delivery-tracking';
 import {dispatchInbound} from '../../../../services/conversation/router';
 import {extractWhatsAppMessages} from '../../../../services/whatsapp/extract';
 import {sendWhatsAppText} from '../../../../services/whatsapp/send';
@@ -14,6 +15,7 @@ function errorCode(error:unknown){
  const raw=error instanceof Error?error.message:String(error);
  return raw.replace(/\s+/g,' ').slice(0,180);
 }
+function extractStatuses(payload:any){const out:any[]=[];for(const entry of payload?.entry||[])for(const change of entry?.changes||[])for(const s of change?.value?.statuses||[])out.push({providerMessageId:String(s?.id||''),status:String(s?.status||''),timestamp:s?.timestamp?String(s.timestamp):null,recipient:s?.recipient_id?String(s.recipient_id):null,errors:s?.errors||null});return out.filter(x=>x.providerMessageId&&x.status);}
 
 async function dispatchWithRetry(waId:string,text:string,raw:unknown){
  try{return await dispatchInbound(waId,text,raw);}
@@ -31,7 +33,7 @@ async function dispatchWithRetry(waId:string,text:string,raw:unknown){
 export async function GET(req:Request){const u=new URL(req.url);const mode=u.searchParams.get('hub.mode');const token=u.searchParams.get('hub.verify_token');const challenge=u.searchParams.get('hub.challenge');if(mode==='subscribe'&&token===await getSetting<string>('whatsapp.verify_token'))return new Response(challenge??'',{status:200});return new Response('Forbidden',{status:403});}
 
 export async function POST(req:Request){
- const payload=await req.json();const messages=extractWhatsAppMessages(payload);const processed=[];
+ const payload=await req.json();const statuses=extractStatuses(payload);const statusResults=[];for(const s of statuses)statusResults.push(await recordMarketingDeliveryStatus(s).catch(()=>({matched:false,error:true} as const)));const messages=extractWhatsAppMessages(payload);const processed=[];
  for(const m of messages){
   let sessionId:string|null=null;
   try{
@@ -42,6 +44,7 @@ export async function POST(req:Request){
    await db.doniConversation.update({where:{id:session.id},data:{lastMessageAt:new Date()}});
    const preference=contentType==='text'?await handleMarketingPreferenceCommand(m.waId,m.text).catch(()=>({handled:false} as const)):{handled:false} as const;
    if(preference.handled){const delivery=await sendWhatsAppText(m.waId,preference.reply);const providerMessageId=(delivery as any)?.response?.messages?.[0]?.id??null;await recordMessage({conversationId:session.id,direction:'OUTBOUND',senderType:'BOT',text:preference.reply,providerMessageId,metadata:{delivery,event:'marketing_preference',status:preference.status}});processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,marketingPreference:preference.status,delivery});continue;}
+   await recordMarketingReply(m.waId,m.messageId).catch(()=>null);
    if(session.status==='AGENT_HOLD'){
     processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,heldByAgent:true});
     continue;
@@ -61,5 +64,5 @@ export async function POST(req:Request){
    processed.push({messageId:m.messageId,waId:m.waId,sessionId,error:'dispatch_failed'});
   }
  }
- return Response.json({received:true,count:messages.length,processed},{status:200});
+ return Response.json({received:true,count:messages.length,statusCount:statuses.length,statusMatched:statusResults.filter((x:any)=>x?.matched).length,processed},{status:200});
 }
