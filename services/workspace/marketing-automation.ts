@@ -6,6 +6,7 @@ import {listMarketingCampaigns} from '@/lib/workspace/marketing-campaigns';
 import {listMarketingStudio} from '@/lib/workspace/marketing-studio';
 import {listMarketingPartnerships} from '@/lib/workspace/marketing-partnerships';
 import {assetGovernance,listMarketingAssets} from '@/lib/workspace/marketing-assets';
+import {listMarketingSeasons,seasonReadiness} from '@/lib/workspace/marketing-seasonality';
 
 const DAY=24*60*60*1000;
 function overdue(value?:string|null){return Boolean(value&&new Date(value).getTime()<=Date.now());}
@@ -22,7 +23,7 @@ async function notify(recipients:string[],input:{title:string;message:string;sev
  return count;
 }
 export async function runMarketingAutomation(){
- const [leads,campaigns,studio,partnerships,assets,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),listMarketingAssets(),fallbackRecipients()]);
+ const [leads,campaigns,studio,partnerships,assets,seasons,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),listMarketingAssets(),listMarketingSeasons(),fallbackRecipients()]);
  let notifications=0;
  for(const lead of leads){
   if(['CONVERTED','LOST'].includes(lead.status)||!overdue(lead.nextFollowUpAt))continue;
@@ -52,5 +53,13 @@ export async function runMarketingAutomation(){
   else if(g.expiresSoon)notifications+=await notify(fallback,{title:`Droits bientôt expirés · ${asset.title}`,message:`Les droits expirent le ${asset.expiresAt?new Date(asset.expiresAt).toLocaleDateString('fr-FR'):'bientôt'}. Vérifier le renouvellement avant réutilisation.`,severity:'WARNING',href:'/marketing/assets',dedupeKey:`marketing:asset-expiring:${asset.id}:${asset.expiresAt}`});
   if(g.reason==='APPROVAL_REQUIRED')notifications+=await notify(fallback,{title:`Validation requise · ${asset.title}`,message:`Usage ${asset.usage} demandé mais asset non approuvé. Une validation Marketing est obligatoire avant usage externe.`,severity:'WARNING',href:'/marketing/assets',dedupeKey:`marketing:asset-approval:${asset.id}:${asset.status}:${asset.usage}`});
  }
- return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true,assetRights:true,assetApproval:true,assetExpiryWarningDays:14}};
+ for(const season of seasons){
+  if(['COMPLETED','CANCELLED'].includes(season.status))continue;
+  const start=new Date(season.startAt).getTime(),prep=new Date(season.prepStartAt).getTime();
+  if(Date.now()<prep||Date.now()>=start)continue;
+  const r=seasonReadiness(season);if(r.percent>=100)continue;
+  const days=Math.ceil((start-Date.now())/DAY),recipients=season.ownerId?[season.ownerId]:fallback;
+  notifications+=await notify(recipients,{title:`Préparation saisonnière · ${season.title}`,message:`Lancement dans ${days} jour${days>1?'s':''}. Préparation ${r.percent}% (${r.done}/${r.total}). Compléter l’offre, le contenu, les assets, Ads, landing et tracking.`,severity:days<=30?'CRITICAL':'WARNING',href:'/marketing/seasonality',dedupeKey:`marketing:season-readiness:${season.id}:${season.startAt}`});
+ }
+ return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true,assetRights:true,assetApproval:true,assetExpiryWarningDays:14,seasonPrepDays:60,seasonCriticalDays:30}};
 }
