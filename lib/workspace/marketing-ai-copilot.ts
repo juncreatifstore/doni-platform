@@ -68,4 +68,19 @@ export async function generateCopilotDraft(recommendationId:string){
  await db.appSetting.create({data:{key:`${PREFIX}${id}`,category:CATEGORY,value:value as any}});return {ok:true,draft:value} as const;
 }
 
+export async function createFacebookPublisherTestDraft(){
+ const id=randomUUID();const now=new Date().toISOString();
+ const value={
+  id,status:'AI_READY',recommendationId:`facebook-test:${id}`,type:'FACEBOOK_TEST',priority:'LOW',score:0,
+  title:'Test DONI Facebook Publisher',objective:'Valider le pipeline de publication organique Facebook de bout en bout',
+  audience:'Page Facebook liée — test technique contrôlé',
+  message:'✈️ Test DONI Facebook Publisher\nConnexion Facebook opérationnelle.\nCeci est une publication de test DONI.',
+  channelSuggestion:'Facebook Page',budgetSuggestion:'0 USD — publication organique uniquement',conversationId:null,destination:null,route:null,amount:null,currency:null,learningCampaignId:null,experimentId:null,
+  source:'V2.14 Facebook Organic Publisher · Controlled Test',approvalRequired:true,publicationAllowed:false,
+  disclaimer:'Test technique sans tarif, sans réservation et sans dépense publicitaire. Approbation humaine obligatoire avant publication.',createdAt:now
+ };
+ await db.appSetting.create({data:{key:`${PREFIX}${id}`,category:CATEGORY,value:value as any}});
+ return {ok:true,draft:value} as const;
+}
+
 export async function listCopilotDrafts(){const rows=await db.appSetting.findMany({where:{category:CATEGORY,key:{startsWith:PREFIX}},orderBy:{createdAt:'desc'},take:50});return rows.map(x=>x.value as any);}
