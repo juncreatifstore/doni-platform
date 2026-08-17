@@ -3,19 +3,20 @@ import {revalidatePath} from 'next/cache';
 import {DoniShell} from '@/components/DoniShell';
 import {requirePageUser} from '@/lib/auth/session';
 import {canAccessMarketing} from '@/lib/auth/marketing-access';
-import {generateCopilotDraft,getMarketingAICopilot,listCopilotDrafts} from '@/lib/workspace/marketing-ai-copilot';
+import {createFacebookPublisherTestDraft,generateCopilotDraft,getMarketingAICopilot,listCopilotDrafts} from '@/lib/workspace/marketing-ai-copilot';
 export const dynamic='force-dynamic';
 
 function money(n:number|null|undefined,c:string|null|undefined){if(!n||!c)return null;try{return new Intl.NumberFormat('fr-FR',{style:'currency',currency:c}).format(n);}catch{return `${n.toFixed(2)} ${c}`;}}
 function pLabel(v:string){return ({CRITICAL:'Critique',HIGH:'Haute',MEDIUM:'Moyenne',LOW:'Faible'} as Record<string,string>)[v]||v;}
-function tLabel(v:string){return ({RECOVERY:'Récupération',LIVE_OFFER:'Offre live',DEMAND:'Demande',DATA_QUALITY:'Infrastructure'} as Record<string,string>)[v]||v;}
+function tLabel(v:string){return ({RECOVERY:'Récupération',LIVE_OFFER:'Offre live',DEMAND:'Demande',DATA_QUALITY:'Infrastructure',FACEBOOK_TEST:'Test Facebook'} as Record<string,string>)[v]||v;}
 
 export default async function Page(){
  const user=await requirePageUser('AGENT');if(!canAccessMarketing(user))redirect('/overview?forbidden=1');
  const data=await getMarketingAICopilot();const drafts=await listCopilotDrafts();
  async function createDraft(formData:FormData){'use server';const u=await requirePageUser('AGENT');if(!canAccessMarketing(u))redirect('/overview?forbidden=1');const id=String(formData.get('recommendationId')||'');if(id)await generateCopilotDraft(id);revalidatePath('/marketing/ai-copilot');}
+ async function createFacebookTest(){'use server';await requirePageUser('SUPER_ADMIN');await createFacebookPublisherTestDraft();revalidatePath('/marketing/ai-copilot');revalidatePath('/marketing/autopilot');}
  return <DoniShell title="DONI Marketing AI Copilot" active="/marketing/ai-copilot" user={user}>
-  <section className="workspaceWelcome"><div><span className="workspaceKicker">Marketing V2.4 · Analyse → recommandation → génération</span><h2>DONI Marketing AI Copilot</h2><p>DONI croise Search Intelligence, les abandons de réservation et les offres live pour prioriser les prochaines actions. Toute publication, relance ou dépense reste soumise à validation humaine.</p></div></section>
+  <section className="workspaceWelcome"><div><span className="workspaceKicker">Marketing V2.4 · Analyse → recommandation → génération</span><h2>DONI Marketing AI Copilot</h2><p>DONI croise Search Intelligence, les abandons de réservation et les offres live pour prioriser les prochaines actions. Toute publication, relance ou dépense reste soumise à validation humaine.</p></div>{user.role==='SUPER_ADMIN'?<form action={createFacebookTest}><button className="primaryButton" type="submit">Créer un test Facebook</button></form>:null}</section>
   <div className="copilotMode card"><div><span>Mode actuel</span><strong>Moteur de décision opérationnel</strong><small>Le copilote fonctionne sans dépendance LLM externe. Les brouillons sont structurés pour accueillir ensuite un modèle génératif.</small></div><div><span>Contrôle humain</span><strong>Obligatoire</strong><small>Aucun envoi, publication ni dépense publicitaire automatique.</small></div></div>
   <div className="marketingKpis"><div className="card"><span>Recherches · 30 j</span><strong>{data.summary.searches}</strong></div><div className="card"><span>Intentions fortes</span><strong>{data.summary.highIntent}</strong></div><div className="card"><span>Abandons actifs</span><strong>{data.summary.abandoned}</strong></div><div className="card"><span>Offres live vérifiées</span><strong>{data.summary.liveVerified}</strong></div><div className="card"><span>Priorités critiques</span><strong>{data.summary.critical}</strong></div><div className="card"><span>Priorités hautes</span><strong>{data.summary.high}</strong></div></div>
   <section className="card copilotRecommendations"><div className="searchIntelHead"><div><span>Priorisation DONI</span><h3>Prochaines actions recommandées</h3></div><small>Score 0–100 · données réelles</small></div>
