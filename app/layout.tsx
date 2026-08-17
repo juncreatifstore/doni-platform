@@ -24,5 +24,6 @@ import './marketing-loyalty.css';
 import './marketing-lifecycle.css';
 import './marketing-scorecard.css';
 import './marketing-weekly-review.css';
+import './marketing-insights.css';
 export const metadata={title:'DONI Portal — Créatif Travel',description:'DONI travel operations platform'};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}</body></html>}
