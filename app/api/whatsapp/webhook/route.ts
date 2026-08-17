@@ -1,4 +1,5 @@
 import {getSetting} from '@/lib/settings/service';
+import {handleMarketingPreferenceCommand} from '@/lib/workspace/marketing-consent';
 import {dispatchInbound} from '../../../../services/conversation/router';
 import {extractWhatsAppMessages} from '../../../../services/whatsapp/extract';
 import {sendWhatsAppText} from '../../../../services/whatsapp/send';
@@ -39,6 +40,8 @@ export async function POST(req:Request){
    const raw:any=m.raw; const contentType=String(raw?.type||'text');
    await recordMessage({conversationId:session.id,direction:'INBOUND',senderType:'CUSTOMER',text:m.text,contentType,providerMessageId:m.messageId,metadata:{rawType:contentType}});
    await db.doniConversation.update({where:{id:session.id},data:{lastMessageAt:new Date()}});
+   const preference=contentType==='text'?await handleMarketingPreferenceCommand(m.waId,m.text).catch(()=>({handled:false} as const)):{handled:false} as const;
+   if(preference.handled){const delivery=await sendWhatsAppText(m.waId,preference.reply);const providerMessageId=(delivery as any)?.response?.messages?.[0]?.id??null;await recordMessage({conversationId:session.id,direction:'OUTBOUND',senderType:'BOT',text:preference.reply,providerMessageId,metadata:{delivery,event:'marketing_preference',status:preference.status}});processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,marketingPreference:preference.status,delivery});continue;}
    if(session.status==='AGENT_HOLD'){
     processed.push({messageId:m.messageId,waId:m.waId,sessionId:session.id,heldByAgent:true});
     continue;
