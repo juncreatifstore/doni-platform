@@ -8,6 +8,7 @@ import {listMarketingPartnerships} from '@/lib/workspace/marketing-partnerships'
 import {assetGovernance,listMarketingAssets} from '@/lib/workspace/marketing-assets';
 import {listMarketingSeasons,seasonReadiness} from '@/lib/workspace/marketing-seasonality';
 import {listMarketingReviews,reviewGovernance} from '@/lib/workspace/marketing-reviews';
+import {listMarketingLoyalty,loyaltyAttention} from '@/lib/workspace/marketing-loyalty';
 
 const DAY=24*60*60*1000;
 function overdue(value?:string|null){return Boolean(value&&new Date(value).getTime()<=Date.now());}
@@ -24,7 +25,7 @@ async function notify(recipients:string[],input:{title:string;message:string;sev
  return count;
 }
 export async function runMarketingAutomation(){
- const [leads,campaigns,studio,partnerships,assets,seasons,reviews,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),listMarketingAssets(),listMarketingSeasons(),listMarketingReviews(),fallbackRecipients()]);
+ const [leads,campaigns,studio,partnerships,assets,seasons,reviews,loyalty,fallback]=await Promise.all([listMarketingLeads(),listMarketingCampaigns(),listMarketingStudio(),listMarketingPartnerships(),listMarketingAssets(),listMarketingSeasons(),listMarketingReviews(),listMarketingLoyalty(),fallbackRecipients()]);
  let notifications=0;
  for(const lead of leads){
   if(['CONVERTED','LOST'].includes(lead.status)||!overdue(lead.nextFollowUpAt))continue;
@@ -66,5 +67,10 @@ export async function runMarketingAutomation(){
   const g=reviewGovernance(review);if(!g.needsResponse||ageMs(review.receivedAt)<DAY)continue;
   notifications+=await notify(fallback,{title:`Avis client à traiter · ${review.customerName}`,message:`Note ${review.rating}/5 via ${review.source}. Une réponse humaine est requise; aucune réponse ne sera envoyée automatiquement.`,severity:review.rating<=2?'CRITICAL':'WARNING',href:'/marketing/reviews',dedupeKey:`marketing:review-response:${review.id}:${review.status}`});
  }
- return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true,assetRights:true,assetApproval:true,assetExpiryWarningDays:14,seasonPrepDays:60,seasonCriticalDays:30,reviewResponseHours:24}};
+ for(const customer of loyalty){
+  const a=loyaltyAttention(customer);if(!a.needsAttention)continue;
+  const detail=a.reason==='ACTION_DUE'?`${customer.nextAction||'Action de fidélité'}${customer.nextActionAt?` · échéance ${new Date(customer.nextActionAt).toLocaleString('fr-FR')}`:''}`:a.reason==='VIP_NO_ACTION'?'Client VIP sans prochaine action planifiée.':a.reason==='INACTIVE_180'?'Aucun achat depuis au moins 180 jours et aucune prochaine action planifiée.':'Client marqué À réactiver : préparer une action humaine de suivi.';
+  notifications+=await notify(fallback,{title:`Fidélité · ${customer.customerName}`,message:`${a.label}. ${detail} Aucun message client ne sera envoyé automatiquement.`,severity:a.severity,href:'/marketing/loyalty',dedupeKey:`marketing:loyalty:${customer.id}:${a.reason}:${customer.nextActionAt||customer.lastPurchaseAt||customer.tier}`});
+ }
+ return {ranAt:new Date().toISOString(),notifications,rules:{leadFollowUp:true,studioReview:true,campaignReviewDays:7,partnershipFollowUp:true,assetRights:true,assetApproval:true,assetExpiryWarningDays:14,seasonPrepDays:60,seasonCriticalDays:30,reviewResponseHours:24,loyaltyActionDue:true,loyaltyInactiveDays:180,loyaltyVipWithoutAction:true}};
 }
