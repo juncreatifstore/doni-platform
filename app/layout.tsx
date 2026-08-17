@@ -38,5 +38,6 @@ import './marketing-consent.css';
 import './marketing-delivery-analytics.css';
 import './marketing-learning-loop.css';
 import './marketing-experiments.css';
+import './marketing-command-center.css';
 export const metadata={title:'DONI Portal — Créatif Travel',description:'DONI travel operations platform'};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}</body></html>}
