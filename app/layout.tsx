@@ -33,5 +33,6 @@ import './marketing-abandoned-bookings.css';
 import './marketing-live-offers.css';
 import './marketing-ai-copilot.css';
 import './marketing-autopilot.css';
+import './marketing-publisher-control.css';
 export const metadata={title:'DONI Portal — Créatif Travel',description:'DONI travel operations platform'};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}</body></html>}
