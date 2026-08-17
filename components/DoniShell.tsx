@@ -54,6 +54,7 @@ const groups:NavGroup[]=[
   {href:'/marketing/autopilot',icon:'⇥',label:'Marketing Autopilot contrôlé',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/publisher-control',icon:'◉',label:'Publisher Control Center',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/consent',icon:'✓',label:'Consent & Opt-out',departments:['MARKETING','MANAGEMENT']},
+  {href:'/marketing/delivery-analytics',icon:'↗',label:'Delivery & Conversion',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/content',icon:'▦',label:'Calendrier contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/studio',icon:'✦',label:'Studio de contenu',departments:['MARKETING','MANAGEMENT']},
   {href:'/marketing/publishing',icon:'⇧',label:'File de publication',departments:['MARKETING','MANAGEMENT']},
