@@ -43,6 +43,7 @@ export async function DoniShell({children,title,active,user}:{children:ReactNode
  const section=portalSectionForPath(active);
  const portalActive=section?.href||null;
  const isSectionHome=Boolean(section&&active===section.href);
+ const contextTools=section?section.tools.filter(tool=>itemVisible(tool,user)).slice(0,4):[];
  const work=await getWorkHubMetrics(user).catch(()=>null);
  const badges=work?sectionBadges(work):{};
  const mobileItems=visibleGroups.flatMap(group=>group.items.map(item=>({href:item.href,icon:item.icon,label:item.label,active:active===item.href||portalActive===item.href,badge:badges[item.href]||0})));
@@ -57,6 +58,7 @@ export async function DoniShell({children,title,active,user}:{children:ReactNode
    <header className="topbar"><div className="mobileTopbarLead"><MobilePortalNav items={mobileItems}/><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div></div><div className="topActions"><GlobalSearch/><PortalQuickAccess active={active} title={title} section={section?.label||null}/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
    <div className="content">
     {section?<nav aria-label="Fil d’Ariane" className="breadcrumbBar"><div className="breadcrumbTrail"><Link href="/portal/sections/home">DONI</Link><span aria-hidden>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span aria-hidden>›</span><strong aria-current="page">{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</nav>:null}
+    {section&&!isSectionHome&&contextTools.length?<nav className="sectionContextBar" aria-label={`Actions rapides · ${section.label}`}><span className="sectionContextLabel">Actions rapides</span><div className="sectionContextLinks">{contextTools.map(tool=>{const isCurrent=active===tool.href||active.startsWith(`${tool.href}/`);return <Link key={tool.href} href={tool.href} className={isCurrent?'active':''} aria-current={isCurrent?'page':undefined}><span aria-hidden>{tool.icon}</span><span>{tool.label}</span></Link>})}</div></nav>:null}
     {children}
    </div>
    <MobileActionBar/>
