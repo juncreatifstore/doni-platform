@@ -5,6 +5,7 @@ import {useEffect,useRef,useState} from 'react';
 type Item={href:string;icon:string;label:string;active:boolean};
 export function MobilePortalNav({items}:{items:Item[]}){
  const[open,setOpen]=useState(false);const closeRef=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{const onOpen=()=>setOpen(true);window.addEventListener('doni:open-mobile-menu',onOpen);return()=>window.removeEventListener('doni:open-mobile-menu',onOpen)},[]);
  useEffect(()=>{if(!open)return;const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')setOpen(false)};document.addEventListener('keydown',onKey);const prev=document.body.style.overflow;document.body.style.overflow='hidden';return()=>{document.removeEventListener('keydown',onKey);document.body.style.overflow=prev}},[open]);
  return <div className="mobilePortalNav">
   <button className="mobileMenuButton" type="button" aria-expanded={open} aria-controls="mobile-portal-drawer" onClick={()=>setOpen(true)}><span aria-hidden>☰</span><span>Menu</span></button>
