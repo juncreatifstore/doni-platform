@@ -29,7 +29,9 @@ function itemVisible(item:NavItem,user:User){
 export function DoniShell({children,title,active,user}:{children:ReactNode;title:string;active:string;user:User}){
  const visibleGroups=groups.map(group=>({...group,items:group.items.filter(item=>itemVisible(item,user))})).filter(group=>group.items.length);
  const dept=departmentLabel(user.department);
- const portalActive=portalSectionForPath(active)?.href||null;
+ const section=portalSectionForPath(active);
+ const portalActive=section?.href||null;
+ const isSectionHome=Boolean(section&&active===section.href);
  return <div className="shell">
   <aside className="sidebar">
    <div className="brand"><div className="logo">D</div><div className="brandText"><strong>DONI</strong><small>Créatif Travel · Operations</small></div></div>
@@ -38,7 +40,10 @@ export function DoniShell({children,title,active,user}:{children:ReactNode;title
   </aside>
   <main className="main">
    <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><GlobalSearch/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
-   <div className="content">{children}</div>
+   <div className="content">
+    {section?<div aria-label="Fil d’Ariane" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:16,fontSize:13}}><div style={{display:'flex',alignItems:'center',gap:8,opacity:.82}}><Link href="/portal/sections/home">DONI</Link><span>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span>›</span><strong>{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</div>:null}
+    {children}
+   </div>
   </main>
  </div>
 }
