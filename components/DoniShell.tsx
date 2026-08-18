@@ -6,6 +6,7 @@ import { NotificationBell } from './workspace/NotificationBell';
 import { GlobalSearch } from './workspace/GlobalSearch';
 import { PortalQuickAccess } from './workspace/PortalQuickAccess';
 import { MobilePortalNav } from './workspace/MobilePortalNav';
+import { MobileActionBar } from './workspace/MobileActionBar';
 import { hasRole } from '@/lib/auth/permissions';
 import { departmentLabel, type Department } from '@/lib/auth/departments';
 import {PORTAL_SECTIONS,portalSectionForPath} from '@/lib/workspace/portal-navigation';
@@ -48,6 +49,7 @@ export function DoniShell({children,title,active,user}:{children:ReactNode;title
     {section?<nav aria-label="Fil d’Ariane" className="breadcrumbBar"><div className="breadcrumbTrail"><Link href="/portal/sections/home">DONI</Link><span aria-hidden>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span aria-hidden>›</span><strong aria-current="page">{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</nav>:null}
     {children}
    </div>
+   <MobileActionBar/>
   </main>
  </div>
 }
