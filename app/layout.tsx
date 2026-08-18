@@ -4,6 +4,7 @@ import './accessibility-v1.css';
 import './portal-quick-access.css';
 import './mobile-portal-nav.css';
 import './mobile-action-bar.css';
+import './mobile-tables-v1.css';
 import './navigation-attention.css';
 import './portal-shortcuts.css';
 import './section-context-bar.css';
