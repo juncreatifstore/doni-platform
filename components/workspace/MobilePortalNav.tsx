@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import {useEffect,useRef,useState} from 'react';
 
-type Item={href:string;icon:string;label:string;active:boolean};
+type Item={href:string;icon:string;label:string;active:boolean;badge?:number};
+function badgeText(n:number){return n>99?'99+':String(n)}
 export function MobilePortalNav({items}:{items:Item[]}){
  const[open,setOpen]=useState(false);const closeRef=useRef<HTMLButtonElement>(null);
  useEffect(()=>{const onOpen=()=>setOpen(true);window.addEventListener('doni:open-mobile-menu',onOpen);return()=>window.removeEventListener('doni:open-mobile-menu',onOpen)},[]);
@@ -12,7 +13,7 @@ export function MobilePortalNav({items}:{items:Item[]}){
   {open?<div className="mobileNavOverlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}>
    <aside id="mobile-portal-drawer" className="mobileNavDrawer" aria-label="Navigation mobile DONI">
     <div className="mobileNavHead"><div><strong>DONI</strong><small>Portail principal</small></div><button ref={closeRef} type="button" className="mobileNavClose" aria-label="Fermer le menu" onClick={()=>setOpen(false)}>×</button></div>
-    <nav className="mobileNavLinks" aria-label="Sections du portail">{items.map(item=><Link key={item.href} href={item.href} className={item.active?'active':''} aria-current={item.active?'page':undefined} onClick={()=>setOpen(false)}><span className="mobileNavIcon" aria-hidden>{item.icon}</span><span>{item.label}</span><b aria-hidden>›</b></Link>)}</nav>
+    <nav className="mobileNavLinks" aria-label="Sections du portail">{items.map(item=><Link key={item.href} href={item.href} className={item.active?'active':''} aria-current={item.active?'page':undefined} onClick={()=>setOpen(false)}><span className="mobileNavIcon" aria-hidden>{item.icon}</span><span>{item.label}</span>{item.badge&&item.badge>0?<span className="mobileNavBadge" aria-label={`${item.badge} élément${item.badge>1?'s':''} à traiter`}>{badgeText(item.badge)}</span>:<b aria-hidden>›</b>}</Link>)}</nav>
     <div className="mobileNavHint">Échap pour fermer</div>
    </aside>
   </div>:null}
