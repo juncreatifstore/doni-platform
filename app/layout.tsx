@@ -2,6 +2,7 @@ import './globals.css';
 import './doni-shell.css';
 import './accessibility-v1.css';
 import './portal-quick-access.css';
+import './mobile-portal-nav.css';
 import './workspace-v2.css';
 import './work-centers.css';
 import './tasks-v1.css';
