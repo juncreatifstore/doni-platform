@@ -6,7 +6,7 @@ const SENSITIVE=/pass|password|token|secret|key|card|cvv|cvc|iban|account/i;
 const SAFE_TYPES=new Set(['text','search','email','tel','number','date','datetime-local','time','url']);
 type Saved={values:Record<string,string>;savedAt:number};
 
-function draftKey(el:Element){const root=el.closest<HTMLElement>('[data-doni-draft],.taskCreate');if(!root)return null;const name=root.dataset.doniDraft||root.classList.contains('taskCreate')?'new-task':null;return name?`${PREFIX}${location.pathname}:${name}`:null}
+function draftKey(el:Element){const root=el.closest<HTMLElement>('[data-doni-draft],.taskCreate');if(!root)return null;const name=root.dataset.doniDraft||(root.classList.contains('taskCreate')?'new-task':null);return name?`${PREFIX}${location.pathname}:${name}`:null}
 function fields(root:Element){return Array.from(root.querySelectorAll<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>('input,textarea,select')).filter((el)=>{if(!el.name&&!(el instanceof HTMLInputElement&&el.placeholder))return true;if(SENSITIVE.test(`${el.name} ${(el as HTMLInputElement).placeholder||''}`))return false;if(el instanceof HTMLInputElement){if(['password','file','hidden','checkbox','radio'].includes(el.type))return false;if(el.type&&!SAFE_TYPES.has(el.type))return false}return true})}
 function fieldId(el:HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement,index:number){return el.name||el.id||(el instanceof HTMLInputElement?el.placeholder:'')||`field-${index}`}
 function read(key:string):Saved|null{try{const raw=sessionStorage.getItem(key);return raw?JSON.parse(raw):null}catch{return null}}
