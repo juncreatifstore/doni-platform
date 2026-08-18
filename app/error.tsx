@@ -1,0 +1,3 @@
+'use client';
+import Link from 'next/link';
+export default function ErrorPage({reset}:{error:Error&{digest?:string};reset:()=>void}){return <main className="systemStatePage"><section className="systemStateCard systemStateError" role="alert"><div className="systemStateIcon" aria-hidden>!</div><span className="systemStateKicker">DONI Workspace</span><h1>Une action n’a pas pu être terminée</h1><p>Les données n’ont pas été modifiées automatiquement. Tu peux réessayer ou revenir à l’accueil.</p><div className="systemStateActions"><button type="button" className="btn primary" onClick={()=>reset()}>Réessayer</button><Link className="btn" href="/portal/sections/home">Retour à l’accueil</Link></div></section></main>}
