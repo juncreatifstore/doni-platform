@@ -33,15 +33,16 @@ export function DoniShell({children,title,active,user}:{children:ReactNode;title
  const portalActive=section?.href||null;
  const isSectionHome=Boolean(section&&active===section.href);
  return <div className="shell">
-  <aside className="sidebar">
-   <div className="brand"><div className="logo">D</div><div className="brandText"><strong>DONI</strong><small>Créatif Travel · Operations</small></div></div>
-   <nav className="nav" aria-label="Navigation principale">{visibleGroups.map(group=><div className="navGroup" key={group.label}><div className="navGroupLabel">{group.label}</div>{group.items.map(item=>{const isActive=active===item.href||portalActive===item.href;return <Link key={item.href} href={item.href} className={isActive?'active':''}><span className="navIcon" aria-hidden>{item.icon}</span><span className="label">{item.label}</span></Link>})}</div>)}</nav>
-   <div className="sidebarProfile"><div className="profileAvatar">{initials(user)}</div><div className="profileCopy"><strong>{user.fullName||user.username}</strong><span>{roleLabel(user.role)} · {dept}</span></div></div>
+  <a className="skipLink" href="#main-content">Aller au contenu principal</a>
+  <aside className="sidebar" aria-label="Navigation du portail">
+   <div className="brand"><div className="logo" aria-hidden>D</div><div className="brandText"><strong>DONI</strong><small>Créatif Travel · Operations</small></div></div>
+   <nav className="nav" aria-label="Navigation principale">{visibleGroups.map(group=><div className="navGroup" key={group.label}><div className="navGroupLabel">{group.label}</div>{group.items.map(item=>{const isActive=active===item.href||portalActive===item.href;return <Link key={item.href} href={item.href} className={isActive?'active':''} aria-current={isActive?'page':undefined} title={item.label}><span className="navIcon" aria-hidden>{item.icon}</span><span className="label">{item.label}</span></Link>})}</div>)}</nav>
+   <div className="sidebarProfile"><div className="profileAvatar" aria-hidden>{initials(user)}</div><div className="profileCopy"><strong>{user.fullName||user.username}</strong><span>{roleLabel(user.role)} · {dept}</span></div></div>
   </aside>
-  <main className="main">
+  <main className="main" id="main-content" tabIndex={-1}>
    <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><GlobalSearch/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
    <div className="content">
-    {section?<div aria-label="Fil d’Ariane" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:16,fontSize:13}}><div style={{display:'flex',alignItems:'center',gap:8,opacity:.82}}><Link href="/portal/sections/home">DONI</Link><span>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span>›</span><strong>{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</div>:null}
+    {section?<nav aria-label="Fil d’Ariane" className="breadcrumbBar"><div className="breadcrumbTrail"><Link href="/portal/sections/home">DONI</Link><span aria-hidden>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span aria-hidden>›</span><strong aria-current="page">{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</nav>:null}
     {children}
    </div>
   </main>
