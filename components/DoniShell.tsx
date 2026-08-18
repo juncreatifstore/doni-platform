@@ -4,6 +4,7 @@ import type { UserRole } from '@prisma/client';
 import { LogoutButton } from './LogoutButton';
 import { NotificationBell } from './workspace/NotificationBell';
 import { GlobalSearch } from './workspace/GlobalSearch';
+import { PortalQuickAccess } from './workspace/PortalQuickAccess';
 import { hasRole } from '@/lib/auth/permissions';
 import { departmentLabel, type Department } from '@/lib/auth/departments';
 import {PORTAL_SECTIONS,portalSectionForPath} from '@/lib/workspace/portal-navigation';
@@ -40,7 +41,7 @@ export function DoniShell({children,title,active,user}:{children:ReactNode;title
    <div className="sidebarProfile"><div className="profileAvatar" aria-hidden>{initials(user)}</div><div className="profileCopy"><strong>{user.fullName||user.username}</strong><span>{roleLabel(user.role)} · {dept}</span></div></div>
   </aside>
   <main className="main" id="main-content" tabIndex={-1}>
-   <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><GlobalSearch/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
+   <header className="topbar"><div className="pageHeading"><div className="eyebrow">DONI Workspace · {dept}</div><h1>{title}</h1><div className="userLine">{user.fullName||user.username} · {roleLabel(user.role)}</div></div><div className="topActions"><GlobalSearch/><PortalQuickAccess active={active} title={title} section={section?.label||null}/><NotificationBell/><span className="systemPill"><i/>Système opérationnel</span><LogoutButton/></div></header>
    <div className="content">
     {section?<nav aria-label="Fil d’Ariane" className="breadcrumbBar"><div className="breadcrumbTrail"><Link href="/portal/sections/home">DONI</Link><span aria-hidden>›</span><Link href={section.href}>{section.label}</Link>{!isSectionHome?<><span aria-hidden>›</span><strong aria-current="page">{title}</strong></>:null}</div>{!isSectionHome?<Link className="btn" href={section.href}>← Retour à {section.label}</Link>:null}</nav>:null}
     {children}
