@@ -11,7 +11,7 @@ function fields(root:Element){return Array.from(root.querySelectorAll<HTMLInputE
 function fieldId(el:HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement,index:number){return el.name||el.id||(el instanceof HTMLInputElement?el.placeholder:'')||`field-${index}`}
 function read(key:string):Saved|null{try{const raw=sessionStorage.getItem(key);return raw?JSON.parse(raw):null}catch{return null}}
 function save(key:string,root:Element){const values:Record<string,string>={};fields(root).forEach((el,i)=>{values[fieldId(el,i)]=el.value});try{sessionStorage.setItem(key,JSON.stringify({values,savedAt:Date.now()}))}catch{}}
-function restore(key:string,root:Element){const saved=read(key);if(!saved)return false;let restored=false;fields(root).forEach((el,i)=>{const value=saved.values[fieldId(el,i)];if(value!==undefined&&!el.value){const setter=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value')?.set;setter?.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));restored=true}});return restored}
+function restore(key:string,root:Element){const saved=read(key);if(!saved)return false;const always=(root as HTMLElement).dataset.doniDraftRestore==='always';let restored=false;fields(root).forEach((el,i)=>{const value=saved.values[fieldId(el,i)];if(value!==undefined&&(always||!el.value)){const setter=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value')?.set;setter?.call(el,value);el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));restored=true}});return restored}
 
 export function DraftRecovery(){
  const[status,setStatus]=useState<'idle'|'saved'|'restored'>('idle');
