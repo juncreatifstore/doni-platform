@@ -11,6 +11,7 @@ import './ui-consistency-v1.css';
 import './page-states.css';
 import './draft-recovery.css';
 import './action-feedback.css';
+import './form-stepper.css';
 import './workspace-v2.css';
 import './work-centers.css';
 import './tasks-v1.css';
