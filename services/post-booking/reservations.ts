@@ -1,9 +1,11 @@
 import {db} from '@/lib/db';
 import {normalizeTicketPayload} from '@/services/ticketing/types';
 import {getSetting} from '@/lib/settings/service';
+import type {DataScope} from '@/lib/auth/data-scope';
+import {conversationCountryWhere} from '@/lib/auth/data-scope';
 
-export async function getReservationOverview(reference?:string){
-  const where:any={status:'ISSUED'};
+export async function getReservationOverview(reference?:string,scope:DataScope={mode:'global'}){
+  const where:any={status:'ISSUED',...conversationCountryWhere(scope)};
   if(reference) where.reference=reference.trim().toUpperCase();
   const tickets=await (db as any).ticket.findMany({where,include:{conversation:true},orderBy:{issuedAt:'desc'},take:reference?1:50});
   const [alertsEnabled,disruptionAlertsEnabled,deliveryEnabled]=await Promise.all([
@@ -50,7 +52,8 @@ export async function getReservationOverview(reference?:string){
       hoursToDeparture:hoursToDeparture===null?null:Math.round(hoursToDeparture*10)/10,
       alertsEnabled:alertsEnabled===true,
       disruptionAlertsEnabled:disruptionAlertsEnabled===true,
-      waId:t.conversation?.waId||null
+      waId:t.conversation?.waId||null,
+      country:t.conversation?.country||null
     });
   }
   return rows;
