@@ -21,15 +21,22 @@ const groups:NavGroup[]=[
  {label:'Portail DONI',items:PORTAL_SECTIONS.map(section=>({href:section.href,icon:section.icon,label:section.label,minimum:section.minimum,departments:section.departments}))},
 ];
 
-function roleLabel(user:User){const role=user.orgRole;if(role==='SUPER_ADMIN')return 'Super Admin';if(role==='COUNTRY_ADMIN')return 'Admin pays';if(role==='SECTION_MANAGER')return 'Responsable de section';if(role==='PARTNER')return 'Partenaire';if(role==='AGENT')return 'Agent';return user.role==='SUPER_ADMIN'?'Super Admin':user.role==='ADMIN'?'Admin pays':'Agent'}
+function resolvedOrgRole(user:User):OrgRole{
+ if(user.orgRole)return user.orgRole;
+ if(user.role==='SUPER_ADMIN')return 'SUPER_ADMIN';
+ if(user.role==='ADMIN')return 'COUNTRY_ADMIN';
+ return 'AGENT';
+}
+function roleLabel(user:User){const role=resolvedOrgRole(user);if(role==='SUPER_ADMIN')return 'Super Admin';if(role==='COUNTRY_ADMIN')return 'Admin pays';if(role==='SECTION_MANAGER')return 'Responsable de section';if(role==='PARTNER')return 'Partenaire';if(role==='AGENT')return 'Agent';return user.role==='SUPER_ADMIN'?'Super Admin':user.role==='ADMIN'?'Admin pays':'Agent'}
 function initials(user:User){const source=(user.fullName||user.username||'D').trim();return source.split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join('')||'D';}
 function itemVisible(item:NavItem,user:User){
- if(user.orgRole==='PARTNER')return item.href==='/portal/sections/home';
- if(user.orgRole==='SECTION_MANAGER'&&(item.href==='/portal/sections/admin'||item.href==='/users'))return true;
+ const orgRole=resolvedOrgRole(user);
+ if(orgRole==='PARTNER')return item.href==='/portal/sections/home';
+ if(orgRole==='SECTION_MANAGER'&&(item.href==='/portal/sections/admin'||item.href==='/users'))return true;
  if(item.minimum&&!hasRole(user.role,item.minimum))return false;
- if(user.orgRole==='SUPER_ADMIN'||user.orgRole==='COUNTRY_ADMIN'||user.role!=='AGENT')return true;
+ if(orgRole==='SUPER_ADMIN'||orgRole==='COUNTRY_ADMIN'||user.role!=='AGENT')return true;
  if(!item.departments)return true;
- if(!user.department)return user.orgRole!=='SECTION_MANAGER';
+ if(!user.department)return orgRole!=='SECTION_MANAGER';
  return item.departments.includes(user.department);
 }
 function badgeText(n:number){return n>99?'99+':String(n)}
@@ -41,16 +48,18 @@ function sectionBadges(w:Awaited<ReturnType<typeof getWorkHubMetrics>>){return{
 } as Record<string,number>}
 
 export async function DoniShell({children,title,active,user}:{children:ReactNode;title:string;active:string;user:User}){
+ const orgRole=resolvedOrgRole(user);
  const visibleGroups=groups.map(group=>({...group,items:group.items.filter(item=>itemVisible(item,user))})).filter(group=>group.items.length);
  const dept=departmentLabel(user.department);
  const section=portalSectionForPath(active);
  const portalActive=section?.href||null;
  const isSectionHome=Boolean(section&&active===section.href);
  const contextTools=section?section.tools.filter(tool=>itemVisible(tool,user)).slice(0,4):[];
- const work=user.orgRole==='PARTNER'?null:await getWorkHubMetrics(user).catch(()=>null);
+ const workUser={...user,orgRole};
+ const work=orgRole==='PARTNER'?null:await getWorkHubMetrics(workUser).catch(()=>null);
  const badges=work?sectionBadges(work):{};
  const mobileItems=visibleGroups.flatMap(group=>group.items.map(item=>({href:item.href,icon:item.icon,label:item.label,active:active===item.href||portalActive===item.href,badge:badges[item.href]||0})));
- const scopeLabel=user.orgRole==='SUPER_ADMIN'?'Global':user.orgRole==='PARTNER'?'Partenaire':user.country?`${user.country} · ${dept}`:dept;
+ const scopeLabel=orgRole==='SUPER_ADMIN'?'Global':orgRole==='PARTNER'?'Partenaire':user.country?`${user.country} · ${dept}`:dept;
  return <div className="shell">
   <a className="skipLink" href="#main-content">Aller au contenu principal</a>
   <aside className="sidebar" aria-label="Navigation du portail">
