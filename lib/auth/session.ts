@@ -6,6 +6,7 @@ import { db } from '@/lib/db';
 import { hasRole } from './permissions';
 import { getUserDepartment, type Department } from './departments';
 import {getUserOrgRole,type OrgRole} from './org-roles';
+import {recordSessionMetadata} from './session-security';
 
 export const SESSION_COOKIE = 'doni_session';
 const DAYS = Number(process.env.AUTH_SESSION_DAYS || 7);
@@ -14,10 +15,11 @@ const hashToken = (token: string) => createHash('sha256').update(token).digest('
 export type SafeUser = Pick<PortalUser,'id'|'username'|'fullName'|'email'|'role'|'country'|'active'> & {department:Department|null;orgRole:OrgRole};
 export function safeUser(u: PortalUser, department:Department|null=null,orgRole:OrgRole='AGENT'): SafeUser { return { id:u.id,username:u.username,fullName:u.fullName,email:u.email,role:u.role,country:u.country,active:u.active,department,orgRole }; }
 
-export async function createPortalSession(userId: string) {
+export async function createPortalSession(userId: string, req?:Request) {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + DAYS * 86400000);
-  await db.portalSession.create({data:{userId,tokenHash:hashToken(token),expiresAt}});
+  const session=await db.portalSession.create({data:{userId,tokenHash:hashToken(token),expiresAt},select:{id:true}});
+  await recordSessionMetadata(session.id,req);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, { httpOnly:true, sameSite:'lax', secure:process.env.NODE_ENV==='production', path:'/', expires:expiresAt });
   return expiresAt;
