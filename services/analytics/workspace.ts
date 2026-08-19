@@ -1,9 +1,12 @@
 import {db} from '@/lib/db';
 import type {DataScope} from '@/lib/auth/data-scope';
-import {allowedTicketReferences,conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
+import {allowedTicketReferences,conversationCountryWhere,countryWhere,dataScopeForUser} from '@/lib/auth/data-scope';
+import {getCurrentUser} from '@/lib/auth/session';
 
 const DAY=24*60*60*1000;
-export async function getWorkspaceMetrics(scope:DataScope={mode:'global'}){
+async function resolveScope(scope?:DataScope):Promise<DataScope>{if(scope)return scope;const user=await getCurrentUser();return user?dataScopeForUser(user):{mode:'none'};}
+export async function getWorkspaceMetrics(inputScope?:DataScope){
+ const scope=await resolveScope(inputScope);
  const last24h=new Date(Date.now()-DAY);
  if(scope.mode==='none')return {customers:0,openPostBooking:0,pendingManualReviews:0,pendingRefunds:0,activeFlights:0,openIncidents:0,activeCheckins:0,activeBaggage:0,failedDeliveries:0};
  const refs=await allowedTicketReferences(scope);const refWhere=refs===null?{}:{ticketReference:{in:refs}};const requestRefWhere=refs===null?{}:{reference:{in:refs}};const refundRefWhere=refs===null?{}:{ticketReference:{in:refs}};
