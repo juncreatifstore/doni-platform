@@ -4,6 +4,7 @@ import { verifyPassword } from '@/lib/auth/password';
 import { createPortalSession } from '@/lib/auth/session';
 import { audit } from '@/lib/audit';
 import { authFingerprint, isLoginBlocked, recordLoginAttempt } from '@/lib/auth/rate-limit';
+import {createMfaChallenge,getTotpStatus} from '@/lib/auth/mfa';
 
 export async function POST(req:Request){
   try{
@@ -18,10 +19,16 @@ export async function POST(req:Request){
       return NextResponse.json({success:false,error:'invalid_credentials'},{status:401});
     }
     await db.portalSession.deleteMany({where:{userId:user.id,expiresAt:{lt:new Date()}}});
+    const mfa=await getTotpStatus(user.id);
+    if(mfa.enabled){
+      const challenge=await createMfaChallenge(user.id);
+      await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id});
+      return NextResponse.json({success:true,mfaRequired:true,challenge,methods:['TOTP','RECOVERY']});
+    }
     await recordLoginAttempt(fingerprint,true);
     await createPortalSession(user.id);
     await db.portalUser.update({where:{id:user.id},data:{lastLoginAt:new Date()}});
-    await audit({userId:user.id,action:'AUTH_LOGIN',entity:'PortalUser',entityId:user.id});
-    return NextResponse.json({success:true,role:user.role});
+    await audit({userId:user.id,action:'AUTH_LOGIN',entity:'PortalUser',entityId:user.id,metadata:{mfa:false}});
+    return NextResponse.json({success:true,role:user.role,mfaEnrollmentRecommended:true});
   }catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'login_failed'},{status:500});}
 }
