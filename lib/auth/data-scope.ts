@@ -1,5 +1,6 @@
 import type {SafeUser} from '@/lib/auth/session';
 import type {Department} from '@/lib/auth/departments';
+import {db} from '@/lib/db';
 
 export type DataScope={mode:'global'|'country'|'none';country?:string};
 
@@ -26,4 +27,18 @@ export function conversationCountryWhere(scope:DataScope){
  if(scope.mode==='global')return{};
  if(scope.mode==='none')return{conversation:{country:'__DONI_NO_ACCESS__'}};
  return{conversation:{country:scope.country}};
+}
+
+export async function allowedTicketReferences(scope:DataScope){
+ if(scope.mode==='none')return [] as string[];
+ if(scope.mode==='global')return null;
+ const rows=await db.ticket.findMany({where:{conversation:{country:scope.country}},select:{reference:true}});
+ return rows.map(r=>r.reference);
+}
+
+export async function ticketReferenceAllowed(scope:DataScope,reference:string|null|undefined){
+ if(scope.mode==='global')return true;
+ if(scope.mode==='none'||!reference)return false;
+ const count=await db.ticket.count({where:{reference,conversation:{country:scope.country}}});
+ return count>0;
 }
