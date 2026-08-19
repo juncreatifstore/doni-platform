@@ -1,9 +1,11 @@
 import {db} from '@/lib/db';
 import type {DataScope} from '@/lib/auth/data-scope';
-import {allowedTicketReferences,conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
+import {allowedTicketReferences,conversationCountryWhere,countryWhere,dataScopeForUser} from '@/lib/auth/data-scope';
+import {getCurrentUser} from '@/lib/auth/session';
 
 const OPEN_POST=['request_created','waiting_admin_review','waiting_airline_confirmation','penalty_pending','waiting_customer_payment'];
 const prisma:any=db as any;
+async function resolveScope(scope?:DataScope):Promise<DataScope>{if(scope)return scope;const user=await getCurrentUser();return user?dataScopeForUser(user):{mode:'none'};}
 
 export async function getReservationsWorkCenter(scope:DataScope={mode:'global'}){
  const paymentWhere={status:'PENDING',...conversationCountryWhere(scope)};
@@ -44,27 +46,28 @@ export async function getFinanceWorkCenter(scope:DataScope={mode:'global'}){
  return {manualReviews,pendingPayments,refunds:refunds.slice(0,10),failedPayments};
 }
 
-export async function getMarketingWorkCenter(){
- const day=new Date(Date.now()-24*3600000),week=new Date(Date.now()-7*24*3600000);
+export async function getMarketingWorkCenter(inputScope?:DataScope){
+ const scope=await resolveScope(inputScope);const day=new Date(Date.now()-24*3600000),week=new Date(Date.now()-7*24*3600000);const customerScope=countryWhere(scope),conversationScope=countryWhere(scope),paymentScope=conversationCountryWhere(scope);
  const [newCustomers,started,paid,topCountries,recentCustomers]=await Promise.all([
-  prisma.customerProfile.count({where:{createdAt:{gte:week}}}),
-  prisma.doniConversation.count({where:{createdAt:{gte:day}}}),
-  prisma.payment.count({where:{status:'PAID',updatedAt:{gte:day}}}),
-  prisma.customerProfile.groupBy({by:['country'],where:{createdAt:{gte:week}},_count:{_all:true},orderBy:{_count:{country:'desc'}},take:6}),
-  prisma.customerProfile.findMany({orderBy:{lastSeenAt:'desc'},take:8,select:{customerCode:true,displayName:true,country:true,preferredLanguage:true,lastSeenAt:true}}),
+  prisma.customerProfile.count({where:{createdAt:{gte:week},...customerScope}}),
+  prisma.doniConversation.count({where:{createdAt:{gte:day},...conversationScope}}),
+  prisma.payment.count({where:{status:'PAID',updatedAt:{gte:day},...paymentScope}}),
+  prisma.customerProfile.groupBy({by:['country'],where:{createdAt:{gte:week},...customerScope},_count:{_all:true},orderBy:{_count:{country:'desc'}},take:6}),
+  prisma.customerProfile.findMany({where:customerScope,orderBy:{lastSeenAt:'desc'},take:8,select:{customerCode:true,displayName:true,country:true,preferredLanguage:true,lastSeenAt:true}}),
  ]);
  const conversion=started?Math.round((paid/started)*1000)/10:0;
  return {newCustomers,started,paid,conversion,topCountries:(topCountries as any[]).map((x:any)=>({country:x.country||'Non défini',count:x._count?._all||0})),recentCustomers};
 }
 
-export async function getManagementWorkCenter(){
- const [users,activeConversations,openIncidents,pendingRefunds,pendingReviews,ticketsToIssue]=await Promise.all([
-  prisma.portalUser.count({where:{active:true}}),
-  prisma.doniConversation.count({where:{status:'ACTIVE'}}),
-  prisma.flightIncident.count({where:{status:{in:['open','acknowledged']}}}),
-  prisma.refundRequest.count({where:{status:{notIn:['completed','rejected','cancelled']}}}),
-  prisma.manualPaymentReview.count({where:{status:{in:['PENDING','NEEDS_INFO']}}}),
-  prisma.ticket.count({where:{status:{in:['PENDING_MANUAL_ISSUE','ISSUING']}}}),
+export async function getManagementWorkCenter(inputScope?:DataScope){
+ const scope=await resolveScope(inputScope);const refs=await allowedTicketReferences(scope);const refundRefWhere=refs===null?{}:{ticketReference:{in:refs}};
+ const [users,activeConversations,pendingRefunds,pendingReviews,ticketsToIssue]=await Promise.all([
+  prisma.portalUser.count({where:{active:true,...countryWhere(scope)}}),
+  prisma.doniConversation.count({where:{status:'ACTIVE',...countryWhere(scope)}}),
+  prisma.refundRequest.count({where:{status:{notIn:['completed','rejected','cancelled']},...refundRefWhere}}),
+  prisma.manualPaymentReview.count({where:{status:{in:['PENDING','NEEDS_INFO']},payment:conversationCountryWhere(scope)}}),
+  prisma.ticket.count({where:{status:{in:['PENDING_MANUAL_ISSUE','ISSUING']},...conversationCountryWhere(scope)}}),
  ]);
+ const openIncidents=scope.mode==='global'?await prisma.flightIncident.count({where:{status:{in:['open','acknowledged']}}}):0;
  return {users,activeConversations,openIncidents,pendingRefunds,pendingReviews,ticketsToIssue};
 }
