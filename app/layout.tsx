@@ -6,6 +6,7 @@ import './mobile-portal-nav.css';
 import './mobile-action-bar.css';
 import './mobile-tables-v1.css';
 import './mobile-workspace-v1.css';
+import './mobile-layout-v2.css';
 import './navigation-attention.css';
 import './portal-shortcuts.css';
 import './section-context-bar.css';
