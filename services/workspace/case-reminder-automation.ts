@@ -1,14 +1,16 @@
 import {db} from '@/lib/db';
 import {upsertInternalNotification} from '@/lib/workspace/notifications';
 import {getCasePortfolio} from '@/services/workspace/case-portfolio';
+import type {SafeUser} from '@/lib/auth/session';
 
 const REMINDER_WINDOW_MINUTES=60;
 const MANAGER_ESCALATION_MINUTES=120;
+const SYSTEM_USER:SafeUser={id:'DONI_AUTOMATION',username:'doni-automation',fullName:'DONI Automation',email:null,role:'SUPER_ADMIN',country:null,active:true,department:null,orgRole:'SUPER_ADMIN'};
 function minutesUntil(value:string){return Math.round((new Date(value).getTime()-Date.now())/60000);}
 function dueToken(value:string){return new Date(value).toISOString().replace(/[^0-9]/g,'').slice(0,14);}
 
 export async function runCaseReminderAutomation(){
- const {rows}=await getCasePortfolio();
+ const {rows}=await getCasePortfolio(SYSTEM_USER);
  const admins=await db.portalUser.findMany({where:{active:true,role:{in:['ADMIN','SUPER_ADMIN']}},select:{id:true}});
  let generated=0;
  for(const c of rows){
