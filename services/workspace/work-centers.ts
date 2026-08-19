@@ -1,14 +1,20 @@
 import {db} from '@/lib/db';
+import type {DataScope} from '@/lib/auth/data-scope';
+import {conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
 
 const OPEN_POST=['request_created','waiting_admin_review','waiting_airline_confirmation','penalty_pending','waiting_customer_payment'];
 const prisma:any=db as any;
 
-export async function getReservationsWorkCenter(){
+export async function getReservationsWorkCenter(scope:DataScope={mode:'global'}){
+ const paymentWhere={status:'PENDING',...conversationCountryWhere(scope)};
+ const ticketWhere={status:{in:['CREATED','TO_BE_PAID','PENDING_MANUAL_ISSUE','ISSUING']},...conversationCountryWhere(scope)};
+ const conversationWhere={status:'ACTIVE',...countryWhere(scope)};
+ const recentTicketWhere={status:'ISSUED',...conversationCountryWhere(scope)};
  const [pendingPayments,ticketsToIssue,activeConversations,recentTickets]=await Promise.all([
-  prisma.payment.findMany({where:{status:'PENDING'},orderBy:{updatedAt:'asc'},take:8,select:{reference:true,amount:true,currency:true,provider:true,updatedAt:true}}),
-  prisma.ticket.findMany({where:{status:{in:['CREATED','TO_BE_PAID','PENDING_MANUAL_ISSUE','ISSUING']}},orderBy:{updatedAt:'asc'},take:8,select:{reference:true,status:true,pnr:true,updatedAt:true}}),
-  prisma.doniConversation.findMany({where:{status:'ACTIVE'},orderBy:{updatedAt:'asc'},take:8,select:{id:true,waId:true,country:true,currentSegment:true,agentRequired:true,updatedAt:true}}),
-  prisma.ticket.findMany({where:{status:'ISSUED'},orderBy:{issuedAt:'desc'},take:6,select:{reference:true,pnr:true,deliveryStatus:true,issuedAt:true}}),
+  prisma.payment.findMany({where:paymentWhere,orderBy:{updatedAt:'asc'},take:8,select:{reference:true,amount:true,currency:true,provider:true,updatedAt:true}}),
+  prisma.ticket.findMany({where:ticketWhere,orderBy:{updatedAt:'asc'},take:8,select:{reference:true,status:true,pnr:true,updatedAt:true}}),
+  prisma.doniConversation.findMany({where:conversationWhere,orderBy:{updatedAt:'asc'},take:8,select:{id:true,waId:true,country:true,currentSegment:true,agentRequired:true,updatedAt:true}}),
+  prisma.ticket.findMany({where:recentTicketWhere,orderBy:{issuedAt:'desc'},take:6,select:{reference:true,pnr:true,deliveryStatus:true,issuedAt:true}}),
  ]);
  return {pendingPayments,ticketsToIssue,activeConversations,recentTickets};
 }
@@ -23,14 +29,17 @@ export async function getCustomerServiceWorkCenter(){
  return {agentRequired,postBooking,checkins,baggage};
 }
 
-export async function getFinanceWorkCenter(){
- const [manualReviews,pendingPayments,refunds,failedPayments]=await Promise.all([
-  prisma.manualPaymentReview.findMany({where:{status:{in:['PENDING','NEEDS_INFO']}},orderBy:{createdAt:'asc'},take:10,select:{id:true,status:true,ocrStatus:true,createdAt:true,payment:{select:{reference:true,amount:true,currency:true,provider:true}}}}),
-  prisma.payment.findMany({where:{status:'PENDING'},orderBy:{updatedAt:'asc'},take:10,select:{reference:true,amount:true,currency:true,provider:true,updatedAt:true}}),
-  prisma.refundRequest.findMany({where:{status:{notIn:['completed','rejected','cancelled']}},orderBy:{createdAt:'asc'},take:10,select:{id:true,ticketReference:true,amount:true,currency:true,status:true,reason:true,createdAt:true}}),
-  prisma.payment.findMany({where:{status:{in:['FAILED','EXPIRED']}},orderBy:{updatedAt:'desc'},take:8,select:{reference:true,amount:true,currency:true,provider:true,status:true,updatedAt:true}}),
+export async function getFinanceWorkCenter(scope:DataScope={mode:'global'}){
+ const paymentScope=conversationCountryWhere(scope);
+ const [manualReviews,pendingPayments,rawRefunds,failedPayments]=await Promise.all([
+  scope.mode==='none'?Promise.resolve([]):prisma.manualPaymentReview.findMany({where:{status:{in:['PENDING','NEEDS_INFO']},payment:paymentScope},orderBy:{createdAt:'asc'},take:10,select:{id:true,status:true,ocrStatus:true,createdAt:true,payment:{select:{reference:true,amount:true,currency:true,provider:true}}}}),
+  prisma.payment.findMany({where:{status:'PENDING',...paymentScope},orderBy:{updatedAt:'asc'},take:10,select:{reference:true,amount:true,currency:true,provider:true,updatedAt:true}}),
+  scope.mode==='none'?Promise.resolve([]):prisma.refundRequest.findMany({where:{status:{notIn:['completed','rejected','cancelled']}},orderBy:{createdAt:'asc'},take:30,select:{id:true,ticketReference:true,amount:true,currency:true,status:true,reason:true,createdAt:true}}),
+  prisma.payment.findMany({where:{status:{in:['FAILED','EXPIRED']},...paymentScope},orderBy:{updatedAt:'desc'},take:8,select:{reference:true,amount:true,currency:true,provider:true,status:true,updatedAt:true}}),
  ]);
- return {manualReviews,pendingPayments,refunds,failedPayments};
+ let refunds=rawRefunds;
+ if(scope.mode==='country'&&rawRefunds.length){const refs=rawRefunds.map((x:any)=>x.ticketReference).filter(Boolean);const allowed=refs.length?await prisma.ticket.findMany({where:{reference:{in:refs},...conversationCountryWhere(scope)},select:{reference:true}}):[];const allowedRefs=new Set(allowed.map((x:any)=>x.reference));refunds=rawRefunds.filter((x:any)=>x.ticketReference&&allowedRefs.has(x.ticketReference));}
+ return {manualReviews,pendingPayments,refunds:refunds.slice(0,10),failedPayments};
 }
 
 export async function getMarketingWorkCenter(){
