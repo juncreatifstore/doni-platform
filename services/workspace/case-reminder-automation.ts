@@ -1,7 +1,10 @@
 import {db} from '@/lib/db';
 import {upsertInternalNotification} from '@/lib/workspace/notifications';
 import {getCasePortfolio} from '@/services/workspace/case-portfolio';
+import {case360Accessible} from '@/services/workspace/case-360';
 import type {SafeUser} from '@/lib/auth/session';
+import {getUserDepartment} from '@/lib/auth/departments';
+import {getUserOrgRole} from '@/lib/auth/org-roles';
 
 const REMINDER_WINDOW_MINUTES=60;
 const MANAGER_ESCALATION_MINUTES=120;
@@ -9,9 +12,20 @@ const SYSTEM_USER:SafeUser={id:'DONI_AUTOMATION',username:'doni-automation',full
 function minutesUntil(value:string){return Math.round((new Date(value).getTime()-Date.now())/60000);}
 function dueToken(value:string){return new Date(value).toISOString().replace(/[^0-9]/g,'').slice(0,14);}
 
+async function escalationUsers(){
+ const rows=await db.portalUser.findMany({where:{active:true},select:{id:true,username:true,fullName:true,email:true,role:true,country:true,active:true}});
+ const users:SafeUser[]=[];
+ for(const row of rows){
+  const [department,orgRole]=await Promise.all([getUserDepartment(row.id),getUserOrgRole(row.id,row.role)]);
+  if(orgRole!=='SUPER_ADMIN'&&orgRole!=='COUNTRY_ADMIN')continue;
+  users.push({...row,department,orgRole});
+ }
+ return users;
+}
+
 export async function runCaseReminderAutomation(){
  const {rows}=await getCasePortfolio(SYSTEM_USER);
- const admins=await db.portalUser.findMany({where:{active:true,role:{in:['ADMIN','SUPER_ADMIN']}},select:{id:true}});
+ const managers=await escalationUsers();
  let generated=0;
  for(const c of rows){
   if(!c.nextAction||!c.nextActionDueAt)continue;
@@ -44,8 +58,13 @@ export async function runCaseReminderAutomation(){
    generated++;
   }
 
+  const eligibleManagers:SafeUser[]=[];
+  for(const manager of managers){
+   if(await case360Accessible(c.kind as any,c.caseId,manager).catch(()=>false))eligibleManagers.push(manager);
+  }
+
   if(!c.ownerId&&mins<=REMINDER_WINDOW_MINUTES){
-   for(const a of admins){
+   for(const a of eligibleManagers){
     await upsertInternalNotification({
      recipientId:a.id,
      title:mins<0?'Dossier non assigné en retard':'Dossier à assigner avant relance',
@@ -59,7 +78,7 @@ export async function runCaseReminderAutomation(){
   }
 
   if(c.ownerId&&mins<=-MANAGER_ESCALATION_MINUTES){
-   for(const a of admins){
+   for(const a of eligibleManagers){
     await upsertInternalNotification({
      recipientId:a.id,
      title:'Relance dossier à escalader',
