@@ -1,6 +1,6 @@
 import {db} from '@/lib/db';
 import type {DataScope} from '@/lib/auth/data-scope';
-import {conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
+import {allowedTicketReferences,conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
 
 const OPEN_POST=['request_created','waiting_admin_review','waiting_airline_confirmation','penalty_pending','waiting_customer_payment'];
 const prisma:any=db as any;
@@ -19,14 +19,16 @@ export async function getReservationsWorkCenter(scope:DataScope={mode:'global'})
  return {pendingPayments,ticketsToIssue,activeConversations,recentTickets};
 }
 
-export async function getCustomerServiceWorkCenter(){
- const [agentRequired,postBooking,checkins,baggage]=await Promise.all([
-  prisma.doniConversation.findMany({where:{status:'ACTIVE',agentRequired:true},orderBy:{updatedAt:'asc'},take:10,select:{id:true,waId:true,country:true,language:true,currentSegment:true,updatedAt:true}}),
-  prisma.postBookingRequest.findMany({where:{status:{in:OPEN_POST}},orderBy:[{priority:'desc'},{createdAt:'asc'}],take:10,select:{id:true,reference:true,requestType:true,status:true,priority:true,phone:true,createdAt:true}}),
-  prisma.checkinService.findMany({where:{status:{notIn:['completed','cancelled']}},orderBy:{updatedAt:'asc'},take:8,select:{id:true,status:true,paymentStatus:true,tracking:{select:{ticketReference:true,airlineCode:true,flightNumber:true,scheduledDeparture:true,clientPhone:true}}}}),
-  prisma.baggageService.findMany({where:{status:{notIn:['completed','cancelled']}},orderBy:{updatedAt:'asc'},take:8,select:{id:true,status:true,quantity:true,weightKg:true,paymentStatus:true,tracking:{select:{ticketReference:true,clientPhone:true}}}}),
+export async function getCustomerServiceWorkCenter(scope:DataScope={mode:'global'}){
+ const refs=await allowedTicketReferences(scope);
+ const [agentRequired,rawPostBooking,rawCheckins,rawBaggage]=await Promise.all([
+  prisma.doniConversation.findMany({where:{status:'ACTIVE',agentRequired:true,...countryWhere(scope)},orderBy:{updatedAt:'asc'},take:10,select:{id:true,waId:true,country:true,language:true,currentSegment:true,updatedAt:true}}),
+  scope.mode==='none'?Promise.resolve([]):prisma.postBookingRequest.findMany({where:{status:{in:OPEN_POST}},orderBy:[{priority:'desc'},{createdAt:'asc'}],take:30,select:{id:true,reference:true,requestType:true,status:true,priority:true,phone:true,createdAt:true}}),
+  scope.mode==='none'?Promise.resolve([]):prisma.checkinService.findMany({where:{status:{notIn:['completed','cancelled']}},orderBy:{updatedAt:'asc'},take:30,select:{id:true,status:true,paymentStatus:true,tracking:{select:{ticketReference:true,airlineCode:true,flightNumber:true,scheduledDeparture:true,clientPhone:true}}}}),
+  scope.mode==='none'?Promise.resolve([]):prisma.baggageService.findMany({where:{status:{notIn:['completed','cancelled']}},orderBy:{updatedAt:'asc'},take:30,select:{id:true,status:true,quantity:true,weightKg:true,paymentStatus:true,tracking:{select:{ticketReference:true,clientPhone:true}}}}),
  ]);
- return {agentRequired,postBooking,checkins,baggage};
+ const inScope=(ref:any)=>refs===null||refs.includes(String(ref||''));
+ return {agentRequired,postBooking:rawPostBooking.filter((x:any)=>inScope(x.reference)).slice(0,10),checkins:rawCheckins.filter((x:any)=>inScope(x.tracking?.ticketReference)).slice(0,8),baggage:rawBaggage.filter((x:any)=>inScope(x.tracking?.ticketReference)).slice(0,8)};
 }
 
 export async function getFinanceWorkCenter(scope:DataScope={mode:'global'}){
