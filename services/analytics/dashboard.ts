@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import type {DataScope} from '@/lib/auth/data-scope';
-import {conversationCountryWhere} from '@/lib/auth/data-scope';
+import {conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
 
 type CurrencyTotal = { currency:string; amount:number; count:number };
 type ProviderTotal = { provider:string; amount:number; count:number };
@@ -13,20 +13,21 @@ function since(ms:number){ return new Date(Date.now()-ms); }
 function num(v: unknown){ return Number(v ?? 0); }
 function pct(a:number,b:number){ return b>0 ? Math.round((a/b)*1000)/10 : 0; }
 
-export async function getOverviewMetrics(){
+export async function getOverviewMetrics(scope:DataScope={mode:'global'}){
   const last24h=since(DAY);
   const staleAt=since(15*60*1000);
+  const conversationScope=countryWhere(scope), linkedScope=conversationCountryWhere(scope);
   const [active,agentRequired,stalled,pendingPayments,paid24h,ticketsToIssue,issued24h,deliveryFailures,paidRows,recentConversations]=await Promise.all([
-    db.doniConversation.count({where:{status:'ACTIVE'}}),
-    db.doniConversation.count({where:{status:'ACTIVE',agentRequired:true}}),
-    db.doniConversation.count({where:{status:'ACTIVE',updatedAt:{lt:staleAt}}}),
-    db.payment.count({where:{status:'PENDING'}}),
-    db.payment.count({where:{status:'PAID',updatedAt:{gte:last24h}}}),
-    db.ticket.count({where:{status:{in:['PENDING_MANUAL_ISSUE','ISSUING']}}}),
-    db.ticket.count({where:{status:'ISSUED',issuedAt:{gte:last24h}}}),
-    db.ticket.count({where:{deliveryStatus:'FAILED'}}),
-    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last24h}},select:{currency:true,amount:true}}),
-    db.doniConversation.findMany({orderBy:{updatedAt:'desc'},take:8,select:{id:true,waId:true,country:true,language:true,currentSegment:true,agentRequired:true,status:true,updatedAt:true}})
+    db.doniConversation.count({where:{status:'ACTIVE',...conversationScope}}),
+    db.doniConversation.count({where:{status:'ACTIVE',agentRequired:true,...conversationScope}}),
+    db.doniConversation.count({where:{status:'ACTIVE',updatedAt:{lt:staleAt},...conversationScope}}),
+    db.payment.count({where:{status:'PENDING',...linkedScope}}),
+    db.payment.count({where:{status:'PAID',updatedAt:{gte:last24h},...linkedScope}}),
+    db.ticket.count({where:{status:{in:['PENDING_MANUAL_ISSUE','ISSUING']},...linkedScope}}),
+    db.ticket.count({where:{status:'ISSUED',issuedAt:{gte:last24h},...linkedScope}}),
+    db.ticket.count({where:{deliveryStatus:'FAILED',...linkedScope}}),
+    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last24h},...linkedScope},select:{currency:true,amount:true}}),
+    db.doniConversation.findMany({where:conversationScope,orderBy:{updatedAt:'desc'},take:8,select:{id:true,waId:true,country:true,language:true,currentSegment:true,agentRequired:true,status:true,updatedAt:true}})
   ]);
   const revenueByCurrency=new Map<string,number>();
   for(const row of paidRows) revenueByCurrency.set(row.currency,(revenueByCurrency.get(row.currency)||0)+num(row.amount));
@@ -72,14 +73,15 @@ const FUNNEL=[
  ['payment','Paiement',['segment_payment_choice','segment_payment_confirmation']],
 ] as const;
 
-export async function getFlowMetrics(){
+export async function getFlowMetrics(scope:DataScope={mode:'global'}){
   const stale10=since(10*60*1000), stale30=since(30*60*1000), last24=since(DAY);
+  const conversationScope=countryWhere(scope), linkedScope=conversationCountryWhere(scope);
   const [segmentGroups,activeRows,started24,paid24,issued24]=await Promise.all([
-    db.doniConversation.groupBy({by:['currentSegment'],where:{status:'ACTIVE'},_count:{_all:true}}),
-    db.doniConversation.findMany({where:{status:'ACTIVE'},select:{id:true,waId:true,country:true,language:true,currentSegment:true,agentRequired:true,updatedAt:true},orderBy:{updatedAt:'asc'},take:250}),
-    db.doniConversation.count({where:{createdAt:{gte:last24}}}),
-    db.payment.count({where:{status:'PAID',updatedAt:{gte:last24}}}),
-    db.ticket.count({where:{status:'ISSUED',issuedAt:{gte:last24}}}),
+    db.doniConversation.groupBy({by:['currentSegment'],where:{status:'ACTIVE',...conversationScope},_count:{_all:true}}),
+    db.doniConversation.findMany({where:{status:'ACTIVE',...conversationScope},select:{id:true,waId:true,country:true,language:true,currentSegment:true,agentRequired:true,updatedAt:true},orderBy:{updatedAt:'asc'},take:250}),
+    db.doniConversation.count({where:{createdAt:{gte:last24},...conversationScope}}),
+    db.payment.count({where:{status:'PAID',updatedAt:{gte:last24},...linkedScope}}),
+    db.ticket.count({where:{status:'ISSUED',issuedAt:{gte:last24},...linkedScope}}),
   ]);
   const segmentMap=new Map(segmentGroups.map(x=>[x.currentSegment,x._count._all]));
   const funnel=FUNNEL.map(([key,label,segments])=>({key,label,count:segments.reduce((n,s)=>n+(segmentMap.get(s)||0),0)}));
