@@ -1,0 +1,33 @@
+@media(max-width:760px){
+  .content,.content>*{min-width:0}
+  .card{min-width:0;max-width:100%}
+  .card h1,.card h2,.card h3,.card p,.card strong,.card small,.card span{overflow-wrap:anywhere}
+  .grid,.workspaceColumns,.teamSnapshot,.marketingGrid,.financeCurrencyGrid,.flowGrid,.conversationSide,.integrationGrid,.doniStepGrid,.doniStepSummary{grid-template-columns:1fr!important}
+  .opsForm,.userForm,.baggageForm{grid-template-columns:1fr!important}
+  .settingRow{grid-template-columns:1fr!important;gap:10px}
+  .settingsHead,.opsHead,.marketingHero,.liveOpsHeader,.conversationTop,.conversationActions{align-items:flex-start;flex-wrap:wrap}
+  .opsForm input,.opsForm select,.userForm input,.userForm select,.miniInput,.miniSelect,.settingControl input,.settingControl select,.composer textarea,.doniStepField input,.doniStepField select{font-size:16px}
+  .quickWorkspace{grid-template-columns:1fr!important}
+  .quickWorkspaceCard strong,.quickWorkspaceCard small{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  .moneyStrip>div{min-width:0;width:100%}
+  .detailList{grid-template-columns:minmax(86px,auto) minmax(0,1fr)}
+  .settingButtons{justify-content:stretch;flex-wrap:wrap}
+  .settingButtons .btn{flex:1 1 150px}
+  .card:not(.tableWrap) .inlineActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .card:not(.tableWrap) .inlineActions .btn{width:100%}
+  .opsHead>.badge,.marketingHero>.badge{flex:0 0 auto}
+  .sectionTitle{margin-top:20px}
+}
+@media(max-width:460px){
+  .content{padding-left:12px!important;padding-right:12px!important}
+  .card{padding:14px!important;border-radius:12px}
+  .card:not(.tableWrap) .inlineActions{grid-template-columns:1fr}
+  .settingButtons{display:grid;grid-template-columns:1fr;width:100%}
+  .settingButtons .btn{width:100%}
+  .detailList{grid-template-columns:1fr;gap:3px}
+  .detailList dt{margin-top:8px}
+  .doniStepActions{gap:8px}
+  .doniStepActions .btn{flex:1 1 0;min-width:0}
+  .loginPage{padding:14px}
+  .loginCard{padding:22px 18px;border-radius:16px}
+}
