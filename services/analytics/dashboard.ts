@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import type {DataScope} from '@/lib/auth/data-scope';
-import {conversationCountryWhere,countryWhere} from '@/lib/auth/data-scope';
+import {conversationCountryWhere,countryWhere,dataScopeForUser} from '@/lib/auth/data-scope';
+import {getCurrentUser} from '@/lib/auth/session';
 
 type CurrencyTotal = { currency:string; amount:number; count:number };
 type ProviderTotal = { provider:string; amount:number; count:number };
@@ -12,8 +13,10 @@ const DAY = 24*HOUR;
 function since(ms:number){ return new Date(Date.now()-ms); }
 function num(v: unknown){ return Number(v ?? 0); }
 function pct(a:number,b:number){ return b>0 ? Math.round((a/b)*1000)/10 : 0; }
+async function resolveScope(scope?:DataScope):Promise<DataScope>{if(scope)return scope;const user=await getCurrentUser();return user?dataScopeForUser(user):{mode:'none'};}
 
-export async function getOverviewMetrics(scope:DataScope={mode:'global'}){
+export async function getOverviewMetrics(inputScope?:DataScope){
+  const scope=await resolveScope(inputScope);
   const last24h=since(DAY);
   const staleAt=since(15*60*1000);
   const conversationScope=countryWhere(scope), linkedScope=conversationCountryWhere(scope);
@@ -34,7 +37,8 @@ export async function getOverviewMetrics(scope:DataScope={mode:'global'}){
   return {active,agentRequired,stalled,pendingPayments,paid24h,ticketsToIssue,issued24h,deliveryFailures,revenue24h:[...revenueByCurrency].map(([currency,amount])=>({currency,amount})),recentConversations};
 }
 
-export async function getFinanceMetrics(scope:DataScope={mode:'global'}){
+export async function getFinanceMetrics(inputScope?:DataScope){
+  const scope=await resolveScope(inputScope);
   const last24h=since(DAY), last7d=since(7*DAY), previous7d=since(14*DAY);
   const paymentScope=conversationCountryWhere(scope);
   const [paid7d,paidPrev7d,statusGroups,providerRows,recentPayments]=await Promise.all([
@@ -73,7 +77,8 @@ const FUNNEL=[
  ['payment','Paiement',['segment_payment_choice','segment_payment_confirmation']],
 ] as const;
 
-export async function getFlowMetrics(scope:DataScope={mode:'global'}){
+export async function getFlowMetrics(inputScope?:DataScope){
+  const scope=await resolveScope(inputScope);
   const stale10=since(10*60*1000), stale30=since(30*60*1000), last24=since(DAY);
   const conversationScope=countryWhere(scope), linkedScope=conversationCountryWhere(scope);
   const [segmentGroups,activeRows,started24,paid24,issued24]=await Promise.all([
