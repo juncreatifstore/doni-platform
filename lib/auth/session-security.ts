@@ -1,8 +1,8 @@
 import {createHash} from 'node:crypto';
 import {cookies} from 'next/headers';
 import {db} from '@/lib/db';
-import {SESSION_COOKIE} from '@/lib/auth/session';
 
+const SESSION_COOKIE='doni_session';
 const CATEGORY='Auth Session Metadata';
 const PREFIX='auth.session.meta.';
 const tokenHash=(token:string)=>createHash('sha256').update(token).digest('hex');
