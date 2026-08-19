@@ -57,5 +57,6 @@ import './marketing-command-center.css';
 import {PortalShortcuts} from '@/components/workspace/PortalShortcuts';
 import {DraftRecovery} from '@/components/workspace/DraftRecovery';
 import {ActionFeedback} from '@/components/workspace/ActionFeedback';
+import {RouteAccessibility} from '@/components/workspace/RouteAccessibility';
 export const metadata={title:'DONI Portal — Créatif Travel',description:'DONI travel operations platform'};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}<DraftRecovery/><ActionFeedback/><PortalShortcuts/></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}<DraftRecovery/><ActionFeedback/><PortalShortcuts/><RouteAccessibility/></body></html>}
