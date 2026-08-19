@@ -10,7 +10,7 @@ export async function GET(req:Request){
  const auth=await requireApiUser('SUPER_ADMIN');
  if(!auth.ok)return NextResponse.redirect(new URL('/login',req.url));
  const step=await requireRecentStepUp();
- if(!step.ok)return NextResponse.redirect(new URL('/marketing/campaigns?meta_ads_error=step_up_required',req.url));
+ if(!step.ok){const u=new URL('/step-up',req.url);u.searchParams.set('returnTo','/api/settings/facebook/ads/connect');return NextResponse.redirect(u);}
  const appId=await getSetting<string>('facebook.app_id');
  const version=await getSetting<string>('facebook.graph_version');
  if(!appId)return NextResponse.redirect(new URL('/marketing/campaigns?meta_ads_error=app_id_missing',req.url));
