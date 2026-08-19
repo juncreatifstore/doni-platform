@@ -4,10 +4,17 @@ import { sendWhatsAppText } from '@/services/whatsapp/send';
 import type { SafeUser } from '@/lib/auth/session';
 import { getSegment } from '@/services/segments/registry';
 import type { ConversationSession } from '@/services/conversation/types';
+import {canAccessDepartments,countryWhere,dataScopeForUser} from '@/lib/auth/data-scope';
 
-export async function listLiveConversations(limit=100){
+const LIVE_DEPARTMENTS=['CUSTOMER_SERVICE','OPERATIONS','MANAGEMENT','RESERVATIONS'] as const;
+function assertLiveAccess(user:SafeUser){if(!canAccessDepartments(user,LIVE_DEPARTMENTS as any))throw new Error('forbidden_department');}
+async function assertConversationScope(id:string,user:SafeUser){assertLiveAccess(user);const scope=dataScopeForUser(user);const row=await db.doniConversation.findFirst({where:{id,...countryWhere(scope)},select:{id:true}});if(!row)throw new Error('conversation_not_found');}
+
+export async function listLiveConversations(limit=100,user?:SafeUser){
+  const scope=user?dataScopeForUser(user):{mode:'global'} as const;
+  if(user)assertLiveAccess(user);
   const rows=await db.doniConversation.findMany({
-    where:{status:{in:['ACTIVE','PAUSED','AGENT_HOLD']}},
+    where:{status:{in:['ACTIVE','PAUSED','AGENT_HOLD']},...countryWhere(scope)},
     orderBy:[{agentRequired:'desc'},{updatedAt:'desc'}],
     take:Math.min(Math.max(limit,1),200),
     include:{assignedAgent:{select:{id:true,username:true,fullName:true}},_count:{select:{messages:true}}}
@@ -20,7 +27,8 @@ export async function listLiveConversations(limit=100){
   }));
 }
 
-export async function getConversationDetail(id:string){
+export async function getConversationDetail(id:string,user?:SafeUser){
+  if(user)await assertConversationScope(id,user);
   const row=await db.doniConversation.findUnique({
     where:{id},
     include:{
@@ -43,16 +51,18 @@ export async function recordMessage(input:{conversationId:string;direction:'INBO
 }
 
 export async function takeoverConversation(id:string,user:SafeUser){
+  await assertConversationScope(id,user);
   const current=await db.doniConversation.findUnique({where:{id},select:{id:true,status:true,assignedAgentId:true,waId:true}});
   if(!current)throw new Error('conversation_not_found');
   if(current.status==='AGENT_HOLD'&&current.assignedAgentId&&current.assignedAgentId!==user.id)throw new Error('conversation_already_assigned');
   const row=await db.doniConversation.update({where:{id},data:{status:'AGENT_HOLD',agentRequired:true,assignedAgentId:user.id,agentTakenOverAt:new Date(),agentReleasedAt:null}});
   await recordMessage({conversationId:id,direction:'OUTBOUND',senderType:'SYSTEM',text:`Conversation prise en charge par ${user.fullName||user.username}.`,senderUserId:user.id,metadata:{event:'takeover'}});
-  await audit({userId:user.id,action:'conversation.takeover',entity:'DoniConversation',entityId:id,metadata:{waId:current.waId}});
+  await audit({userId:user.id,action:'conversation.takeover',entity:'DoniConversation',entityId:id,metadata:{waId:current.waId,country:user.country||null}});
   return row;
 }
 
 export async function releaseConversation(id:string,user:SafeUser){
+  await assertConversationScope(id,user);
   const current=await db.doniConversation.findUnique({where:{id},select:{id:true,status:true,assignedAgentId:true,waId:true}});
   if(!current)throw new Error('conversation_not_found');
   if(current.assignedAgentId&&current.assignedAgentId!==user.id&&user.role==='AGENT')throw new Error('conversation_assigned_to_other_agent');
@@ -65,11 +75,12 @@ export async function releaseConversation(id:string,user:SafeUser){
     const prompt=await handler.prompt(session);
     if(prompt){resumeDelivery=await sendWhatsAppText(row.waId,prompt);const pid=(resumeDelivery as any)?.response?.messages?.[0]?.id??null;await recordMessage({conversationId:id,direction:'OUTBOUND',senderType:'BOT',text:prompt,providerMessageId:pid,metadata:{event:'resume_prompt',delivery:resumeDelivery}});}
   }
-  await audit({userId:user.id,action:'conversation.release',entity:'DoniConversation',entityId:id,metadata:{waId:current.waId,resumePrompt:Boolean(handler)}});
+  await audit({userId:user.id,action:'conversation.release',entity:'DoniConversation',entityId:id,metadata:{waId:current.waId,resumePrompt:Boolean(handler),country:user.country||null}});
   return {...row,resumeDelivery};
 }
 
 export async function sendAgentMessage(id:string,user:SafeUser,text:string){
+  await assertConversationScope(id,user);
   const clean=text.trim(); if(!clean)throw new Error('message_required'); if(clean.length>4096)throw new Error('message_too_long');
   const c=await db.doniConversation.findUnique({where:{id},select:{id:true,waId:true,status:true,assignedAgentId:true}});
   if(!c)throw new Error('conversation_not_found');
@@ -79,6 +90,6 @@ export async function sendAgentMessage(id:string,user:SafeUser,text:string){
   const providerMessageId=(delivery as any)?.response?.messages?.[0]?.id??null;
   const message=await recordMessage({conversationId:id,direction:'OUTBOUND',senderType:'AGENT',text:clean,senderUserId:user.id,providerMessageId,metadata:{delivery}});
   await db.doniConversation.update({where:{id},data:{lastMessageAt:new Date(),agentRequired:true}});
-  await audit({userId:user.id,action:'conversation.agent_message',entity:'DoniConversation',entityId:id,metadata:{dryRun:(delivery as any)?.dryRun===true}});
+  await audit({userId:user.id,action:'conversation.agent_message',entity:'DoniConversation',entityId:id,metadata:{dryRun:(delivery as any)?.dryRun===true,country:user.country||null}});
   return {message,delivery};
 }
