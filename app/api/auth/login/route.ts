@@ -5,6 +5,7 @@ import { createPortalSession } from '@/lib/auth/session';
 import { audit } from '@/lib/audit';
 import { authFingerprint, isLoginBlocked, recordLoginAttempt } from '@/lib/auth/rate-limit';
 import {createMfaChallenge,getTotpStatus} from '@/lib/auth/mfa';
+import {getPasskeyStatus} from '@/lib/auth/passkeys';
 
 export async function POST(req:Request){
   try{
@@ -19,11 +20,14 @@ export async function POST(req:Request){
       return NextResponse.json({success:false,error:'invalid_credentials'},{status:401});
     }
     await db.portalSession.deleteMany({where:{userId:user.id,expiresAt:{lt:new Date()}}});
-    const mfa=await getTotpStatus(user.id);
-    if(mfa.enabled){
+    const [totp,passkey]=await Promise.all([getTotpStatus(user.id),getPasskeyStatus(user.id)]);
+    if(totp.enabled||passkey.enabled){
       const challenge=await createMfaChallenge(user.id);
-      await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id});
-      return NextResponse.json({success:true,mfaRequired:true,challenge,methods:['TOTP','RECOVERY']});
+      const methods:string[]=[];
+      if(passkey.enabled)methods.push('PASSKEY');
+      if(totp.enabled)methods.push('TOTP','RECOVERY');
+      await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id,metadata:{methods}});
+      return NextResponse.json({success:true,mfaRequired:true,challenge,methods});
     }
     await recordLoginAttempt(fingerprint,true);
     await createPortalSession(user.id);
