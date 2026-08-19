@@ -1,11 +1,13 @@
 import {NextResponse} from 'next/server';
 import {requireApiUser} from '@/lib/auth/session';
+import {canAccessDepartments} from '@/lib/auth/data-scope';
 import {requireRecentStepUp} from '@/lib/auth/session-security';
 import {createPausedMetaCampaign,getMetaAdsStatus,listAccessibleMetaAdAccounts,saveMetaAdsSelection,setMetaAdsWriteEnabled} from '@/services/facebook/ads';
 
 export async function GET(){
  const auth=await requireApiUser('AGENT');
  if(!auth.ok)return NextResponse.json({success:false,error:'unauthorized'},{status:401});
+ if(!canAccessDepartments(auth.user,['MARKETING','MANAGEMENT']))return NextResponse.json({success:false,error:'forbidden'},{status:403});
  try{const [status,accounts]=await Promise.all([getMetaAdsStatus(),listAccessibleMetaAdAccounts()]);return NextResponse.json({success:true,status,accounts});}
  catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'meta_ads_diagnostic_failed'},{status:500});}
 }
