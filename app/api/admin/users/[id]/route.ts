@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {db} from '@/lib/db';
 import {requireApiUser} from '@/lib/auth/session';
+import {requireRecentStepUp} from '@/lib/auth/session-security';
 import {hashPassword} from '@/lib/auth/password';
 import {audit} from '@/lib/audit';
 import {getUserDepartment,isDepartment,setUserDepartment,type Department} from '@/lib/auth/departments';
@@ -17,6 +18,7 @@ function canReach(actor:OrgRole,actorCountry:string|null,actorDepartment:Departm
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});
  if(!canAdminister(auth.user.orgRole))return NextResponse.json({success:false,error:'forbidden'},{status:403});
+ const step=await requireRecentStepUp();if(!step.ok)return NextResponse.json({success:false,error:step.error,windowSeconds:step.windowSeconds},{status:step.status});
  const {id}=await params;const target=await db.portalUser.findUnique({where:{id}});if(!target)return NextResponse.json({success:false,error:'not_found'},{status:404});
  const [targetOrgRole,targetDepartment]=await Promise.all([getUserOrgRole(target.id,target.role),getUserDepartment(target.id)]);
  if(id!==auth.user.id&&!canReach(auth.user.orgRole,auth.user.country,auth.user.department,targetOrgRole,target.country,targetDepartment))return NextResponse.json({success:false,error:'forbidden_target'},{status:403});
