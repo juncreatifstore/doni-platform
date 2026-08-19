@@ -8,6 +8,9 @@ import { getUserDepartment, type Department } from './departments';
 import {getUserOrgRole,type OrgRole} from './org-roles';
 import {recordSessionMetadata} from './session-security';
 import {upsertInternalNotification} from '@/lib/workspace/notifications';
+import {getTotpStatus} from './mfa';
+import {getPasskeyStatus} from './passkeys';
+import {mfaEnrollmentState} from './mfa-policy';
 
 export const SESSION_COOKIE = 'doni_session';
 const DAYS = Number(process.env.AUTH_SESSION_DAYS || 7);
@@ -38,8 +41,11 @@ export async function getCurrentUser(): Promise<SafeUser|null> {
   const [department,orgRole]=await Promise.all([getUserDepartment(session.user.id),getUserOrgRole(session.user.id,session.user.role)]);
   return safeUser(session.user,department,orgRole);
 }
-export async function requirePageUser(minimum:UserRole='AGENT') {
-  const user=await getCurrentUser(); if(!user) redirect('/login'); if(!hasRole(user.role,minimum)) redirect('/overview?forbidden=1'); return user;
+export async function getMfaEnrollmentStateForUser(user:SafeUser){const [totp,passkey]=await Promise.all([getTotpStatus(user.id),getPasskeyStatus(user.id)]);return mfaEnrollmentState(user.orgRole,totp.enabled,passkey.enabled);}
+export async function requirePageUser(minimum:UserRole='AGENT',options?:{allowMfaEnrollment?:boolean}) {
+  const user=await getCurrentUser(); if(!user) redirect('/login'); if(!hasRole(user.role,minimum)) redirect('/overview?forbidden=1');
+  if(!options?.allowMfaEnrollment){const enrollment=await getMfaEnrollmentStateForUser(user);if(enrollment.required&&!enrollment.compliant)redirect(`/security?enrollment_required=1&reason=${encodeURIComponent(enrollment.reason||'mfa_enrollment_required')}`);}
+  return user;
 }
 export async function requireApiUser(minimum:UserRole='AGENT') {
   const user=await getCurrentUser();
