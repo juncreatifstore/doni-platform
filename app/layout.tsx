@@ -58,5 +58,6 @@ import {PortalShortcuts} from '@/components/workspace/PortalShortcuts';
 import {DraftRecovery} from '@/components/workspace/DraftRecovery';
 import {ActionFeedback} from '@/components/workspace/ActionFeedback';
 import {RouteAccessibility} from '@/components/workspace/RouteAccessibility';
+import {StepUpFetchBridge} from '@/components/security/StepUpFetchBridge';
 export const metadata={title:'DONI Portal — Créatif Travel',description:'DONI travel operations platform'};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}<DraftRecovery/><ActionFeedback/><PortalShortcuts/><RouteAccessibility/></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="fr"><body>{children}<StepUpFetchBridge/><DraftRecovery/><ActionFeedback/><PortalShortcuts/><RouteAccessibility/></body></html>}
