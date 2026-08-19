@@ -1,11 +1,26 @@
 import {db} from '@/lib/db';
+import type {SafeUser} from '@/lib/auth/session';
+import {dataScopeForUser} from '@/lib/auth/data-scope';
+import {getWorkspaceTaskForUser} from '@/lib/workspace/tasks';
 
 export type CaseKind='CLIENT'|'PAYMENT'|'TICKET'|'POST_BOOKING'|'FLIGHT'|'TASK';
 const prisma:any=db;
 function taskRows(rows:any[]){return rows.map(r=>r.value).filter((x:any)=>x&&typeof x==='object'&&x.id&&x.title)}
 function timelineItem(at:any,type:string,title:string,detail?:string|null){return {at:new Date(at).toISOString(),type,title,detail:detail||null}}
 
-export async function getCase360(kind:CaseKind,id:string){
+export async function case360Accessible(kind:CaseKind,id:string,user:SafeUser){
+ const scope=dataScopeForUser(user);if(scope.mode==='global')return true;if(scope.mode==='none')return false;const country=scope.country;
+ if(kind==='CLIENT')return Boolean(await prisma.customerProfile.findFirst({where:{id,country},select:{id:true}}));
+ if(kind==='PAYMENT')return Boolean(await prisma.payment.findFirst({where:{id,conversation:{country}},select:{id:true}}));
+ if(kind==='TICKET')return Boolean(await prisma.ticket.findFirst({where:{id,conversation:{country}},select:{id:true}}));
+ if(kind==='POST_BOOKING'){const row=await prisma.postBookingRequest.findUnique({where:{id},select:{conversationId:true,ticketId:true}});if(!row)return false;if(row.conversationId&&await prisma.doniConversation.count({where:{id:row.conversationId,country}}))return true;if(row.ticketId&&await prisma.ticket.count({where:{id:row.ticketId,conversation:{country}}}))return true;return false;}
+ if(kind==='FLIGHT'){const row=await prisma.flightTracking.findUnique({where:{id},select:{ticketId:true,ticketReference:true}});if(!row)return false;if(row.ticketId&&await prisma.ticket.count({where:{id:row.ticketId,conversation:{country}}}))return true;if(row.ticketReference&&await prisma.ticket.count({where:{reference:row.ticketReference,conversation:{country}}}))return true;return false;}
+ if(kind==='TASK')return Boolean(await getWorkspaceTaskForUser(id,user));
+ return false;
+}
+
+export async function getCase360(kind:CaseKind,id:string,user:SafeUser){
+ if(!await case360Accessible(kind,id,user))return null;
  let client:any=null,conversation:any=null,payment:any=null,ticket:any=null,post:any=null,flight:any=null,task:any=null;
  if(kind==='CLIENT')client=await prisma.customerProfile.findUnique({where:{id}});
  if(kind==='PAYMENT')payment=await prisma.payment.findUnique({where:{id},include:{conversation:{include:{customer:true}}}});
@@ -44,7 +59,8 @@ export async function getCase360(kind:CaseKind,id:string){
   prisma.auditLog.findMany({where:{OR:[...(ticketId?[{entityId:ticketId}]:[]),...(conversationId?[{entityId:conversationId}]:[]),...(client?.id?[{entityId:client.id}]:[])]},orderBy:{createdAt:'desc'},take:30}).catch(()=>[]),
  ]);
  const refs=new Set([id,client?.id,conversationId,ticketId,ticketReference,payment?.id,payment?.reference,post?.id,flight?.id].filter(Boolean).map(String));
- const tasks=taskRows(settings).filter((t:any)=>t.id===id||refs.has(String(t.entityId||''))||[ticketReference,ticket?.pnr,payment?.reference].filter(Boolean).some((v:any)=>String(t.title||'').includes(String(v))||String(t.description||'').includes(String(v))));
+ const visibleTaskIds=new Set((await Promise.all(taskRows(settings).map(async(t:any)=>await getWorkspaceTaskForUser(String(t.id),user)?String(t.id):null))).filter(Boolean));
+ const tasks=taskRows(settings).filter((t:any)=>visibleTaskIds.has(String(t.id))).filter((t:any)=>t.id===id||refs.has(String(t.entityId||''))||[ticketReference,ticket?.pnr,payment?.reference].filter(Boolean).some((v:any)=>String(t.title||'').includes(String(v))||String(t.description||'').includes(String(v))));
  const timeline:any[]=[];
  for(const m of messages)timeline.push(timelineItem(m.createdAt,'MESSAGE',m.direction==='inbound'?'Message client':'Réponse DONI',m.text));
  for(const p of payments)timeline.push(timelineItem(p.createdAt,'PAYMENT',`Paiement ${p.reference}`,`${p.status} · ${Number(p.amount).toFixed(2)} ${p.currency}`));
