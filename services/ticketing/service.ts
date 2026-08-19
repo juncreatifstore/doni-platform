@@ -1,6 +1,8 @@
 import { registerTicketForTracking } from '@/services/flight-ops/register';
 import { db as prisma } from '@/lib/db';
 import { normalizeTicketPayload, type TicketPayload } from './types';
+import type {DataScope} from '@/lib/auth/data-scope';
+import {conversationCountryWhere} from '@/lib/auth/data-scope';
 
 function payloadOf(v: unknown): TicketPayload { return normalizeTicketPayload(v); }
 export function validateIssuable(payload: TicketPayload){
@@ -10,9 +12,9 @@ export function validateIssuable(payload: TicketPayload){
   if (!segments.length) throw new Error('ticket_missing_segments');
   return { passengers, segments };
 }
-export async function getTicketQueue(){
+export async function getTicketQueue(scope:DataScope={mode:'global'}){
   const rows = await prisma.ticket.findMany({
-    where:{ status:{ in:['PENDING_MANUAL_ISSUE','ISSUING'] } },
+    where:{ status:{ in:['PENDING_MANUAL_ISSUE','ISSUING'] },...conversationCountryWhere(scope) },
     include:{ conversation:true }, orderBy:{ createdAt:'asc' }, take:100
   });
   return rows.map((t:any)=>{ const payload=payloadOf(t.payload); return {
@@ -22,8 +24,8 @@ export async function getTicketQueue(){
     contact:payload.contact||{}, total:payload.total, currency:payload.currency, waId:t.conversation?.waId||null
   }});
 }
-export async function getRecentlyIssued(){
-  const rows=await prisma.ticket.findMany({where:{status:'ISSUED'},include:{conversation:true},orderBy:{issuedAt:'desc'},take:10});
+export async function getRecentlyIssued(scope:DataScope={mode:'global'}){
+  const rows=await prisma.ticket.findMany({where:{status:'ISSUED',...conversationCountryWhere(scope)},include:{conversation:true},orderBy:{issuedAt:'desc'},take:10});
   return rows.map((t:any)=>{const payload=payloadOf(t.payload);return {id:t.id,reference:t.reference,pnr:t.pnr,ticketNumber:t.ticketNumber,issuedAt:t.issuedAt,deliveryStatus:t.deliveryStatus,passengerCount:payload.passengers?.length||0,segmentCount:payload.segments?.length||0,segments:payload.segments||[],contact:payload.contact||{},total:payload.total,currency:payload.currency,waId:t.conversation?.waId||null}})
 }
 export async function issueManual(input:{reference:string;pnr:string;ticketNumber?:string;agent?:string}){
