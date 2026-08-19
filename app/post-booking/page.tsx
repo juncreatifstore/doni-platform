@@ -1,7 +1,9 @@
+import {redirect} from 'next/navigation';
 import { DoniShell } from '@/components/DoniShell';
 import { requirePageUser } from '@/lib/auth/session';
 import { listPostBooking } from '@/services/post-booking/service';
 import { AutoRefresh } from '@/components/analytics/AutoRefresh';
+import {canAccessDepartments} from '@/lib/auth/data-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +32,8 @@ function statusBadge(status:string){
 
 export default async function PostBookingPage(){
   const user = await requirePageUser('AGENT');
-  const rows = await listPostBooking();
+  if(!canAccessDepartments(user,['CUSTOMER_SERVICE','TICKETING','OPERATIONS','MANAGEMENT']))redirect('/overview?forbidden=1');
+  const rows = await listPostBooking(user);
   const open = rows.filter((r:any)=>!['approved','rejected','completed'].includes(r.status)).length;
   const waitingAirline = rows.filter((r:any)=>r.status==='waiting_airline_confirmation').length;
   const waitingPayment = rows.filter((r:any)=>r.status==='waiting_customer_payment').length;
@@ -38,13 +41,11 @@ export default async function PostBookingPage(){
   return (
     <DoniShell title="Post-Booking" active="/post-booking" user={user}>
       <AutoRefresh seconds={30}/>
-
       <div className="grid">
         <div className="metric card"><span className="metricLabel">Demandes ouvertes</span><strong className="metricValue">{open}</strong><small className="muted">{rows.length} au total</small></div>
         <div className="metric card"><span className="metricLabel">Attente compagnie</span><strong className="metricValue">{waitingAirline}</strong><small className="muted">Réponse fournisseur requise</small></div>
         <div className="metric card"><span className="metricLabel">Paiements client</span><strong className="metricValue">{waitingPayment}</strong><small className="muted">Frais/penalités à encaisser</small></div>
       </div>
-
       <h2 className="sectionTitle">Demandes après émission</h2>
       <div className="card tableWrap">
         <table className="table">
@@ -62,7 +63,6 @@ export default async function PostBookingPage(){
           </tbody>
         </table>
       </div>
-
       <div className="card" style={{marginTop:16}}>
         <strong>Fonctions disponibles</strong>
         <p className="muted" style={{marginBottom:0}}>Annulation, correction de nom, changement de vol, changement de méthode de paiement, suivi des pénalités, confirmation compagnie et traitement des remboursements sont déjà pris en charge par le backend DONI.</p>
