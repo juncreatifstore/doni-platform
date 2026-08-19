@@ -1,4 +1,6 @@
 import { db } from '@/lib/db';
+import type {DataScope} from '@/lib/auth/data-scope';
+import {conversationCountryWhere} from '@/lib/auth/data-scope';
 
 type CurrencyTotal = { currency:string; amount:number; count:number };
 type ProviderTotal = { provider:string; amount:number; count:number };
@@ -31,14 +33,15 @@ export async function getOverviewMetrics(){
   return {active,agentRequired,stalled,pendingPayments,paid24h,ticketsToIssue,issued24h,deliveryFailures,revenue24h:[...revenueByCurrency].map(([currency,amount])=>({currency,amount})),recentConversations};
 }
 
-export async function getFinanceMetrics(){
+export async function getFinanceMetrics(scope:DataScope={mode:'global'}){
   const last24h=since(DAY), last7d=since(7*DAY), previous7d=since(14*DAY);
+  const paymentScope=conversationCountryWhere(scope);
   const [paid7d,paidPrev7d,statusGroups,providerRows,recentPayments]=await Promise.all([
-    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last7d}},select:{currency:true,amount:true,provider:true,updatedAt:true}}),
-    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:previous7d,lt:last7d}},select:{currency:true,amount:true}}),
-    db.payment.groupBy({by:['status'],_count:{_all:true}}),
-    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last7d}},select:{provider:true,currency:true,amount:true}}),
-    db.payment.findMany({orderBy:{updatedAt:'desc'},take:15,select:{reference:true,provider:true,currency:true,amount:true,status:true,updatedAt:true,conversationId:true}})
+    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last7d},...paymentScope},select:{currency:true,amount:true,provider:true,updatedAt:true}}),
+    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:previous7d,lt:last7d},...paymentScope},select:{currency:true,amount:true}}),
+    db.payment.groupBy({by:['status'],where:paymentScope,_count:{_all:true}}),
+    db.payment.findMany({where:{status:'PAID',updatedAt:{gte:last7d},...paymentScope},select:{provider:true,currency:true,amount:true}}),
+    db.payment.findMany({where:paymentScope,orderBy:{updatedAt:'desc'},take:15,select:{reference:true,provider:true,currency:true,amount:true,status:true,updatedAt:true,conversationId:true}})
   ]);
   const byCurrency=new Map<string,{amount:number;count:number}>();
   const byCurrency24h=new Map<string,{amount:number;count:number}>();
