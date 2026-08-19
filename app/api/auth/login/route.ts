@@ -4,8 +4,9 @@ import { verifyPassword } from '@/lib/auth/password';
 import { createPortalSession } from '@/lib/auth/session';
 import { audit } from '@/lib/audit';
 import { authFingerprint, isLoginBlocked, recordLoginAttempt } from '@/lib/auth/rate-limit';
-import {createMfaChallenge,getTotpStatus} from '@/lib/auth/mfa';
+import {createMfaChallenge,getTotpStatus,type MfaMethod} from '@/lib/auth/mfa';
 import {getPasskeyStatus} from '@/lib/auth/passkeys';
+import {getUserOrgRole} from '@/lib/auth/org-roles';
 
 export async function POST(req:Request){
   try{
@@ -20,19 +21,25 @@ export async function POST(req:Request){
       return NextResponse.json({success:false,error:'invalid_credentials'},{status:401});
     }
     await db.portalSession.deleteMany({where:{userId:user.id,expiresAt:{lt:new Date()}}});
-    const [totp,passkey]=await Promise.all([getTotpStatus(user.id),getPasskeyStatus(user.id)]);
+    const [totp,passkey,orgRole]=await Promise.all([getTotpStatus(user.id),getPasskeyStatus(user.id),getUserOrgRole(user.id,user.role)]);
+    const privileged=orgRole==='SUPER_ADMIN'||orgRole==='COUNTRY_ADMIN';
     if(totp.enabled||passkey.enabled){
-      const challenge=await createMfaChallenge(user.id);
-      const methods:string[]=[];
-      if(passkey.enabled)methods.push('PASSKEY');
-      if(totp.enabled)methods.push('TOTP','RECOVERY');
-      await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id,metadata:{methods}});
-      return NextResponse.json({success:true,mfaRequired:true,challenge,methods});
+      let methods:MfaMethod[]=[];
+      if(privileged&&passkey.enabled){
+        methods=['PASSKEY'];
+        if(totp.enabled)methods.push('RECOVERY');
+      }else{
+        if(passkey.enabled)methods.push('PASSKEY');
+        if(totp.enabled)methods.push('TOTP','RECOVERY');
+      }
+      const challenge=await createMfaChallenge(user.id,methods);
+      await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id,metadata:{methods,orgRole,privilegedPasskeyPolicy:privileged&&passkey.enabled}});
+      return NextResponse.json({success:true,mfaRequired:true,challenge,methods,passkeyPrimary:privileged&&passkey.enabled});
     }
     await recordLoginAttempt(fingerprint,true);
     await createPortalSession(user.id);
     await db.portalUser.update({where:{id:user.id},data:{lastLoginAt:new Date()}});
-    await audit({userId:user.id,action:'AUTH_LOGIN',entity:'PortalUser',entityId:user.id,metadata:{mfa:false}});
-    return NextResponse.json({success:true,role:user.role,mfaEnrollmentRecommended:true});
+    await audit({userId:user.id,action:'AUTH_LOGIN',entity:'PortalUser',entityId:user.id,metadata:{mfa:false,orgRole}});
+    return NextResponse.json({success:true,role:user.role,mfaEnrollmentRecommended:true,passkeyEnrollmentRequired:privileged});
   }catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'login_failed'},{status:500});}
 }
