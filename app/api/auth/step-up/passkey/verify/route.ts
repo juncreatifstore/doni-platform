@@ -1,0 +1,8 @@
+import {NextResponse} from 'next/server';
+import {requireApiUser} from '@/lib/auth/session';
+import {assertMfaMethodAllowed,completeMfaChallenge,recordMfaChallengeFailure} from '@/lib/auth/mfa';
+import {verifyAuthentication} from '@/lib/auth/passkeys';
+import {markCurrentSessionMfaVerified} from '@/lib/auth/session-security';
+import {audit} from '@/lib/audit';
+
+export async function POST(req:Request){const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});try{const b=await req.json();const challenge=String(b?.challenge||'');if(!challenge||!b?.response)return NextResponse.json({success:false,error:'passkey_required'},{status:400});const current=await assertMfaMethodAllowed(challenge,'PASSKEY');if(current.userId!==auth.user.id)return NextResponse.json({success:false,error:'forbidden'},{status:403});try{const verified=await verifyAuthentication(req,challenge,auth.user.id,b.response);await completeMfaChallenge(challenge,auth.user.id);await markCurrentSessionMfaVerified('PASSKEY');await audit({userId:auth.user.id,action:'AUTH_STEP_UP',entity:'PortalSession',metadata:{method:'PASSKEY',credentialId:verified.credentialId}});return NextResponse.json({success:true,method:'PASSKEY'});}catch(e){await recordMfaChallengeFailure(challenge).catch(()=>{});throw e;}}catch(e){const error=e instanceof Error?e.message:'passkey_step_up_failed';const status=['invalid_mfa_challenge','mfa_method_not_allowed','unknown_passkey','passkey_authentication_failed','invalid_passkey_challenge'].includes(error)?401:error==='mfa_challenge_locked'?429:400;return NextResponse.json({success:false,error},{status});}}
