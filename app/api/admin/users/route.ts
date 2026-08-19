@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {db} from '@/lib/db';
 import {requireApiUser} from '@/lib/auth/session';
+import {requireRecentStepUp} from '@/lib/auth/session-security';
 import {hashPassword} from '@/lib/auth/password';
 import {audit} from '@/lib/audit';
 import {getDepartmentsForUsers,isDepartment,setUserDepartment,type Department} from '@/lib/auth/departments';
@@ -27,6 +28,7 @@ export async function GET(){
 export async function POST(req:Request){
  const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});
  if(!canAdminister(auth.user.orgRole))return NextResponse.json({success:false,error:'forbidden'},{status:403});
+ const step=await requireRecentStepUp();if(!step.ok)return NextResponse.json({success:false,error:step.error,windowSeconds:step.windowSeconds},{status:step.status});
  try{
   const b=await req.json();const orgRole=String(b.orgRole||b.role||'AGENT');
   if(!isOrgRole(orgRole)||!canManageOrgRole(auth.user.orgRole,orgRole))return NextResponse.json({success:false,error:'forbidden_role'},{status:403});
