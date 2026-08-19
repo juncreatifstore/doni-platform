@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {requireApiUser} from '@/lib/auth/session';
 import {canAccessDepartments} from '@/lib/auth/data-scope';
 import {requireRecentStepUp} from '@/lib/auth/session-security';
-import {CAMPAIGN_CHANNELS,CAMPAIGN_STATUSES,approveMetaAdsCampaign,rejectMetaAdsCampaign,submitMetaAdsCampaign,updateMarketingCampaign} from '@/lib/workspace/marketing-campaigns';
+import {CAMPAIGN_CHANNELS,CAMPAIGN_STATUSES,approveMetaAdsCampaign,getMarketingCampaignForUser,rejectMetaAdsCampaign,submitMetaAdsCampaign,updateMarketingCampaign} from '@/lib/workspace/marketing-campaigns';
 
 export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  const auth=await requireApiUser('AGENT');
@@ -10,6 +10,8 @@ export async function PATCH(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!canAccessDepartments(auth.user,['MARKETING','MANAGEMENT']))return NextResponse.json({success:false,error:'forbidden'},{status:403});
  try{
   const {id}=await params;
+  const target=await getMarketingCampaignForUser(id,auth.user);
+  if(!target)return NextResponse.json({success:false,error:'forbidden_target'},{status:403});
   const b=await req.json();
   const actor={id:auth.user.id,username:auth.user.username,role:auth.user.role};
   if(b.action==='meta_submit')return NextResponse.json({success:true,campaign:await submitMetaAdsCampaign(id,actor)});
