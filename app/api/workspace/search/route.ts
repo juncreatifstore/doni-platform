@@ -7,6 +7,6 @@ export async function GET(req:NextRequest){
  if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});
  const q=req.nextUrl.searchParams.get('q')||'';
  if(q.trim().length<2)return NextResponse.json({success:true,results:[]});
- try{return NextResponse.json({success:true,results:await globalWorkspaceSearch(q)});}
+ try{return NextResponse.json({success:true,results:await globalWorkspaceSearch(q,auth.user)});}
  catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'search_failed'},{status:500});}
 }
