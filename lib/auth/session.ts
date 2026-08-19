@@ -7,6 +7,7 @@ import { hasRole } from './permissions';
 import { getUserDepartment, type Department } from './departments';
 import {getUserOrgRole,type OrgRole} from './org-roles';
 import {recordSessionMetadata} from './session-security';
+import {upsertInternalNotification} from '@/lib/workspace/notifications';
 
 export const SESSION_COOKIE = 'doni_session';
 const DAYS = Number(process.env.AUTH_SESSION_DAYS || 7);
@@ -20,6 +21,7 @@ export async function createPortalSession(userId: string, req?:Request) {
   const expiresAt = new Date(Date.now() + DAYS * 86400000);
   const session=await db.portalSession.create({data:{userId,tokenHash:hashToken(token),expiresAt},select:{id:true}});
   await recordSessionMetadata(session.id,req);
+  await upsertInternalNotification({recipientId:userId,title:'Nouvelle connexion à DONI',message:'Une nouvelle session vient d’être ouverte sur ton compte. Si ce n’était pas toi, révoque immédiatement les autres sessions depuis Sécurité du compte.',severity:'WARNING',href:'/security',dedupeKey:`auth:new-session:${session.id}`}).catch(()=>{});
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, { httpOnly:true, sameSite:'lax', secure:process.env.NODE_ENV==='production', path:'/', expires:expiresAt });
   return expiresAt;
