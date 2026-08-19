@@ -1,5 +1,6 @@
 import {db} from '@/lib/db';
-import {taskAssignees} from '@/lib/workspace/tasks';
+import {taskAssigneesForUser} from '@/lib/workspace/tasks';
+import type {SafeUser} from '@/lib/auth/session';
 
 export type CasePriority='LOW'|'NORMAL'|'HIGH'|'URGENT';
 export type CaseNote={id:string;body:string;createdAt:string;createdById:string;createdByName:string};
@@ -17,4 +18,4 @@ if(patch.ownerId!==undefined){if(patch.ownerId){const u=await db.portalUser.find
 next.updatedAt=new Date().toISOString();next.history=history.slice(-80);await db.appSetting.update({where:{key:key(kind,caseId)},data:{value:next as any,updatedBy:userId}});return next as CaseWorkspaceState;}
 export async function completeCaseNextAction(kind:string,caseId:string,{userId,userName}:{userId:string;userName:string}){const current=await ensureCaseWorkspace(kind,caseId);const action=String(current.nextAction||'').trim();if(!action)throw new Error('no_next_action');const now=new Date().toISOString();const followUp:CaseFollowUp={id:`followup_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,action,dueAt:current.nextActionDueAt||null,completedAt:now,completedById:userId,completedByName:userName};const next:CaseWorkspaceState={...current,nextAction:null,nextActionDueAt:null,completedFollowUps:[followUp,...(current.completedFollowUps||[])].slice(0,100),updatedAt:now,history:[...(current.history||[]),{at:now,by:userName,action:'COMPLETE_NEXT_ACTION',from:action,to:'DONE'}].slice(-80)};await db.appSetting.update({where:{key:key(kind,caseId)},data:{value:next as any,updatedBy:userId}});return next;}
 export async function addCaseNote(kind:string,caseId:string,body:string,{userId,userName}:{userId:string;userName:string}){const current=await ensureCaseWorkspace(kind,caseId);const text=body.trim().slice(0,4000);if(!text)throw new Error('empty_note');const now=new Date().toISOString();const note:CaseNote={id:`note_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,body:text,createdAt:now,createdById:userId,createdByName:userName};const next={...current,notes:[note,...(current.notes||[])].slice(0,100),updatedAt:now,history:[...(current.history||[]),{at:now,by:userName,action:'ADD_NOTE',to:text.slice(0,120)}].slice(-80)};await db.appSetting.update({where:{key:key(kind,caseId)},data:{value:next as any,updatedBy:userId}});return next as CaseWorkspaceState;}
-export async function caseWorkspaceAssignees(){return taskAssignees();}
+export async function caseWorkspaceAssignees(user:SafeUser){return taskAssigneesForUser(user);}
