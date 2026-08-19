@@ -1,17 +1,18 @@
 import {db} from '@/lib/db';
 import {listCaseWorkspaces,caseWorkspaceAssignees,type CaseWorkspaceState} from '@/lib/workspace/case-workspace';
+import type {SafeUser} from '@/lib/auth/session';
 const prisma:any=db;
 export type CasePortfolioRow=CaseWorkspaceState&{title:string;subtitle:string;href:string;kindLabel:string;isOverdue:boolean;isDueToday:boolean};
 function kindLabel(kind:string){return ({CLIENT:'Client',PAYMENT:'Paiement',TICKET:'Billet',POST_BOOKING:'Après-vente',FLIGHT:'Flight Ops',TASK:'Tâche'} as Record<string,string>)[kind]||kind;}
 function todayBounds(){const s=new Date();s.setHours(0,0,0,0);const e=new Date(s);e.setDate(e.getDate()+1);return {s,e};}
-export async function getCasePortfolio(){const states=await listCaseWorkspaces();const ids=(kind:string)=>states.filter(x=>x.kind===kind).map(x=>x.caseId);const [clients,payments,tickets,posts,flights,taskRows,users]=await Promise.all([
+export async function getCasePortfolio(user:SafeUser){const states=await listCaseWorkspaces();const ids=(kind:string)=>states.filter(x=>x.kind===kind).map(x=>x.caseId);const [clients,payments,tickets,posts,flights,taskRows,users]=await Promise.all([
  prisma.customerProfile.findMany({where:{id:{in:ids('CLIENT')}},select:{id:true,displayName:true,customerCode:true,phone:true}}).catch(()=>[]),
  prisma.payment.findMany({where:{id:{in:ids('PAYMENT')}},select:{id:true,reference:true,status:true,amount:true,currency:true}}).catch(()=>[]),
  prisma.ticket.findMany({where:{id:{in:ids('TICKET')}},select:{id:true,reference:true,pnr:true,ticketNumber:true,status:true}}).catch(()=>[]),
  prisma.postBookingRequest.findMany({where:{id:{in:ids('POST_BOOKING')}},select:{id:true,reference:true,requestType:true,status:true}}).catch(()=>[]),
  prisma.flightTracking.findMany({where:{id:{in:ids('FLIGHT')}},select:{id:true,ticketReference:true,pnr:true,airlineCode:true,flightNumber:true,origin:true,destination:true,flightStatus:true}}).catch(()=>[]),
  prisma.appSetting.findMany({where:{category:'Workspace Tasks',key:{startsWith:'workspace.task.'}},select:{value:true}}).catch(()=>[]),
- caseWorkspaceAssignees(),
+ caseWorkspaceAssignees(user),
  ]);
  const maps={
   CLIENT:new Map(clients.map((x:any)=>[x.id,x])),PAYMENT:new Map(payments.map((x:any)=>[x.id,x])),TICKET:new Map(tickets.map((x:any)=>[x.id,x])),POST_BOOKING:new Map(posts.map((x:any)=>[x.id,x])),FLIGHT:new Map(flights.map((x:any)=>[x.id,x])),TASK:new Map(taskRows.map((x:any)=>{const v=x.value as any;return [v?.id,v]}).filter((x:any)=>x[0]))
