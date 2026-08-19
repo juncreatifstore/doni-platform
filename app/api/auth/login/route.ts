@@ -25,19 +25,14 @@ export async function POST(req:Request){
     const privileged=orgRole==='SUPER_ADMIN'||orgRole==='COUNTRY_ADMIN';
     if(totp.enabled||passkey.enabled){
       let methods:MfaMethod[]=[];
-      if(privileged&&passkey.enabled){
-        methods=['PASSKEY'];
-        if(totp.enabled)methods.push('RECOVERY');
-      }else{
-        if(passkey.enabled)methods.push('PASSKEY');
-        if(totp.enabled)methods.push('TOTP','RECOVERY');
-      }
+      if(privileged&&passkey.enabled){methods=['PASSKEY'];if(totp.enabled)methods.push('RECOVERY');}
+      else{if(passkey.enabled)methods.push('PASSKEY');if(totp.enabled)methods.push('TOTP','RECOVERY');}
       const challenge=await createMfaChallenge(user.id,methods);
       await audit({userId:user.id,action:'AUTH_PASSWORD_VERIFIED_MFA_REQUIRED',entity:'PortalUser',entityId:user.id,metadata:{methods,orgRole,privilegedPasskeyPolicy:privileged&&passkey.enabled}});
       return NextResponse.json({success:true,mfaRequired:true,challenge,methods,passkeyPrimary:privileged&&passkey.enabled});
     }
     await recordLoginAttempt(fingerprint,true);
-    await createPortalSession(user.id);
+    await createPortalSession(user.id,req);
     await db.portalUser.update({where:{id:user.id},data:{lastLoginAt:new Date()}});
     await audit({userId:user.id,action:'AUTH_LOGIN',entity:'PortalUser',entityId:user.id,metadata:{mfa:false,orgRole}});
     return NextResponse.json({success:true,role:user.role,mfaEnrollmentRecommended:true,passkeyEnrollmentRequired:privileged});
