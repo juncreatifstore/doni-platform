@@ -25,6 +25,7 @@ function roleLabel(user:User){const role=user.orgRole;if(role==='SUPER_ADMIN')re
 function initials(user:User){const source=(user.fullName||user.username||'D').trim();return source.split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()).join('')||'D';}
 function itemVisible(item:NavItem,user:User){
  if(user.orgRole==='PARTNER')return item.href==='/portal/sections/home';
+ if(user.orgRole==='SECTION_MANAGER'&&(item.href==='/portal/sections/admin'||item.href==='/users'))return true;
  if(item.minimum&&!hasRole(user.role,item.minimum))return false;
  if(user.orgRole==='SUPER_ADMIN'||user.orgRole==='COUNTRY_ADMIN'||user.role!=='AGENT')return true;
  if(!item.departments)return true;
