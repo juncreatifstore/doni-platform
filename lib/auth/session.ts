@@ -16,11 +16,11 @@ const hashToken = (token: string) => createHash('sha256').update(token).digest('
 export type SafeUser = Pick<PortalUser,'id'|'username'|'fullName'|'email'|'role'|'country'|'active'> & {department:Department|null;orgRole:OrgRole};
 export function safeUser(u: PortalUser, department:Department|null=null,orgRole:OrgRole='AGENT'): SafeUser { return { id:u.id,username:u.username,fullName:u.fullName,email:u.email,role:u.role,country:u.country,active:u.active,department,orgRole }; }
 
-export async function createPortalSession(userId: string, req?:Request) {
+export async function createPortalSession(userId: string, req?:Request, mfaMethod?:string|null) {
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + DAYS * 86400000);
   const session=await db.portalSession.create({data:{userId,tokenHash:hashToken(token),expiresAt},select:{id:true}});
-  await recordSessionMetadata(session.id,req);
+  await recordSessionMetadata(session.id,req,mfaMethod);
   await upsertInternalNotification({recipientId:userId,title:'Nouvelle connexion à DONI',message:'Une nouvelle session vient d’être ouverte sur ton compte. Si ce n’était pas toi, révoque immédiatement les autres sessions depuis Sécurité du compte.',severity:'WARNING',href:'/security',dedupeKey:`auth:new-session:${session.id}`}).catch(()=>{});
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, { httpOnly:true, sameSite:'lax', secure:process.env.NODE_ENV==='production', path:'/', expires:expiresAt });
