@@ -1,9 +1,122 @@
-import {redirect} from 'next/navigation';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import {DoniShell} from '@/components/DoniShell';
-import {requirePageUser} from '@/lib/auth/session';
-import {hasRole} from '@/lib/auth/permissions';
-import {getMarketingPerformance} from '@/services/workspace/marketing-performance';
-export const dynamic='force-dynamic';
-function money(v:number|null){return v==null?'—':v.toFixed(2)}
-export default async function Page(){const user=await requirePageUser('AGENT');if(!hasRole(user.role,'ADMIN')&&user.department!=='MARKETING')redirect('/overview?forbidden=1');const d=await getMarketingPerformance();return <DoniShell title="Performance Marketing" active="/marketing/performance" user={user}><section className="mkPerfHero"><div><span className="workspaceKicker">Mesure & rentabilité</span><h2>ROI confirmé par les ventes DONI</h2><p>Les chiffres “confirmés” proviennent uniquement des paiements PAID attribués à un lead/campagne. Les devises ne sont jamais mélangées.</p></div><div className="mkPerfActions"><Link href="/marketing/attribution" className="btn primary">Attribuer les ventes</Link><Link href="/marketing/campaigns" className="btn">Gérer les campagnes</Link></div></section><div className="mkPerfSummary"><div className="card"><span>Ventes attribuées</span><strong>{d.attributionCount}</strong></div>{d.currencyTotals.map(x=><div className="card" key={x.currency}><span>ROI confirmé · {x.currency}</span><strong>{x.roi==null?'—':`${x.roi.toFixed(1)}%`}</strong><small>{x.revenue.toFixed(2)} revenu / {x.spend.toFixed(2)} dépensé</small></div>)}</div><div className="card tableWrap"><table className="table"><thead><tr><th>Campagne</th><th>Canal</th><th>Dépensé</th><th>Leads</th><th>Ventes confirmées</th><th>Revenu confirmé</th><th>CAC réel</th><th>ROAS réel</th><th>ROI réel</th></tr></thead><tbody>{d.rows.map(c=><tr key={c.id}><td><strong>{c.name}</strong><div className="muted">{c.destination||'Offre générale'}</div></td><td>{c.channel}</td><td>{money(c.spend)} {c.currency}</td><td>{c.leads}</td><td>{c.realized.sales}{c.realized.mismatch?<div className="muted">{c.realized.mismatch} devise incompatible</div>:null}</td><td>{c.realized.revenue.toFixed(2)} {c.currency}</td><td>{money(c.realized.cac)} {c.realized.cac==null?'':c.currency}</td><td>{c.realized.roas==null?'—':`${c.realized.roas.toFixed(2)}x`}</td><td>{c.realized.roi==null?'—':`${c.realized.roi.toFixed(1)}%`}</td></tr>)}{!d.rows.length?<tr><td colSpan={9} className="muted">Aucune campagne mesurée.</td></tr>:null}</tbody></table></div><h2 className="sectionTitle">Origine des ventes attribuées</h2><div className="mkSourceGrid">{d.sources.map(s=><div className="card" key={s.source}><strong>{s.source}</strong><span>{s.sales} vente(s)</span><small>{Object.entries(s.revenueByCurrency).map(([cur,val])=>`${Number(val).toFixed(2)} ${cur}`).join(' · ')}</small></div>)}{!d.sources.length?<div className="card portfolioEmpty">Aucune attribution confirmée pour le moment.</div>:null}</div></DoniShell>}
+import { DoniShell } from '@/components/DoniShell';
+import { requirePageUser } from '@/lib/auth/session';
+import { hasRole } from '@/lib/auth/permissions';
+import { getMarketingPerformance } from '@/services/workspace/marketing-performance';
+export const dynamic = 'force-dynamic';
+function money(v: number | null) {
+  return v == null ? '—' : v.toFixed(2);
+}
+export default async function Page() {
+  const user = await requirePageUser('AGENT');
+  if (!hasRole(user.role, 'ADMIN') && user.department !== 'MARKETING') redirect('/overview?forbidden=1');
+  const d = await getMarketingPerformance();
+  return (
+    <DoniShell title="Performance Marketing" active="/marketing/performance" user={user}>
+      <section className="mkPerfHero">
+        <div>
+          <span className="workspaceKicker">Mesure & rentabilité</span>
+          <h2>ROI confirmé par les ventes DONI</h2>
+          <p>
+            Les chiffres “confirmés” proviennent uniquement des paiements PAID attribués à un lead/campagne.
+            Les devises ne sont jamais mélangées.
+          </p>
+        </div>
+        <div className="mkPerfActions">
+          <Link href="/marketing/attribution" className="btn primary">
+            Attribuer les ventes
+          </Link>
+          <Link href="/marketing/campaigns" className="btn">
+            Gérer les campagnes
+          </Link>
+        </div>
+      </section>
+      <div className="mkPerfSummary">
+        <div className="card">
+          <span>Ventes attribuées</span>
+          <strong>{d.attributionCount}</strong>
+        </div>
+        {d.currencyTotals.map((x) => (
+          <div className="card" key={x.currency}>
+            <span>ROI confirmé · {x.currency}</span>
+            <strong>{x.roi == null ? '—' : `${x.roi.toFixed(1)}%`}</strong>
+            <small>
+              {x.revenue.toFixed(2)} revenu / {x.spend.toFixed(2)} dépensé
+            </small>
+          </div>
+        ))}
+      </div>
+      <div className="card tableWrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Campagne</th>
+              <th>Canal</th>
+              <th>Dépensé</th>
+              <th>Leads</th>
+              <th>Ventes confirmées</th>
+              <th>Revenu confirmé</th>
+              <th>CAC réel</th>
+              <th>ROAS réel</th>
+              <th>ROI réel</th>
+            </tr>
+          </thead>
+          <tbody>
+            {d.rows.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <strong>{c.name}</strong>
+                  <div className="muted">{c.destination || 'Offre générale'}</div>
+                </td>
+                <td>{c.channel}</td>
+                <td>
+                  {money(c.spend)} {c.currency}
+                </td>
+                <td>{c.leads}</td>
+                <td>
+                  {c.realized.sales}
+                  {c.realized.mismatch ? (
+                    <div className="muted">{c.realized.mismatch} devise incompatible</div>
+                  ) : null}
+                </td>
+                <td>
+                  {c.realized.revenue.toFixed(2)} {c.currency}
+                </td>
+                <td>
+                  {money(c.realized.cac)} {c.realized.cac == null ? '' : c.currency}
+                </td>
+                <td>{c.realized.roas == null ? '—' : `${c.realized.roas.toFixed(2)}x`}</td>
+                <td>{c.realized.roi == null ? '—' : `${c.realized.roi.toFixed(1)}%`}</td>
+              </tr>
+            ))}
+            {!d.rows.length ? (
+              <tr>
+                <td colSpan={9} className="muted">
+                  Aucune campagne mesurée.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      <h2 className="sectionTitle">Origine des ventes attribuées</h2>
+      <div className="mkSourceGrid">
+        {d.sources.map((s) => (
+          <div className="card" key={s.source}>
+            <strong>{s.source}</strong>
+            <span>{s.sales} vente(s)</span>
+            <small>
+              {Object.entries(s.revenueByCurrency)
+                .map(([cur, val]) => `${Number(val).toFixed(2)} ${cur}`)
+                .join(' · ')}
+            </small>
+          </div>
+        ))}
+        {!d.sources.length ? (
+          <div className="card portfolioEmpty">Aucune attribution confirmée pour le moment.</div>
+        ) : null}
+      </div>
+    </DoniShell>
+  );
+}

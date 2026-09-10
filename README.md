@@ -1,4 +1,38 @@
-# DONI Vercel
+# DONI Platform
+
+Plateforme d’opérations de voyage de JUN Créatif & Travel : agent WhatsApp multilingue
+(FR / EN / ES / HT) → recherche de vols (Duffel, inventaire manuel) → paiement
+(Stripe, Mercado Pago, PayPal, Bazik/MonCash, Zelle) → émission et livraison des billets →
+suivi de vol et alertes, avec un portail interne pour l’équipe (Next.js 15, Prisma 6, PostgreSQL).
+
+## Démarrage
+
+```bash
+cp .env.example .env.local   # DATABASE_URL, DIRECT_URL, AUTH_SECRET, SETTINGS_ENCRYPTION_KEY, CRON_SECRET
+npm install
+npx prisma migrate deploy
+npm run admin:create         # premier SUPER_ADMIN
+npm run dev
+```
+
+## Qualité
+
+`npm run check` = Prettier + ESLint + `tsc --noEmit` + Vitest, les mêmes portes que la CI
+(`.github/workflows/ci.yml`, qui ajoute `npm audit` et un scan de secrets). `GET /api/health`
+renvoie l’état de la base, du planificateur (heartbeat des crons) et des variables requises.
+
+## Mise en service progressive
+
+Tous les interrupteurs de production (WhatsApp, Duffel, paiements, remboursements, émission,
+livraison, alertes, OCR) sont **à OFF par défaut** et se pilotent dans Réglages ou via les
+runbooks `.github/workflows/doni-phase*.yml`, qui activent une capacité à la fois avec
+vérification et retour arrière automatique. Ordre recommandé : phases 20 → 43.
+
+Historique des phases de migration ci-dessous ; la couverture WordPress détaillée est dans
+`docs/WORDPRESS_COVERAGE_MATRIX.md`.
+
+---
+
 
 Initial migration scaffold for the DONI Flight Engine WordPress plugin.
 

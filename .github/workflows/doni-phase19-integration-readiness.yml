@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       base_url:
-        description: "DONI production base URL"
+        description: 'DONI production base URL'
         required: false
-        default: "https://doni-platform.vercel.app"
+        default: 'https://doni-platform.vercel.app'
 
 permissions:
   contents: read

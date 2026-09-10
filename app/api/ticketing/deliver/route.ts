@@ -1,7 +1,35 @@
-import {getSetting} from '@/lib/settings/service';
+import { getSetting } from '@/lib/settings/service';
 import { NextResponse } from 'next/server';
 import { deliverTicket } from '@/services/ticketing/delivery';
 import { requireApiUser } from '@/lib/auth/session';
 import { audit } from '@/lib/audit';
-import {canAccessDepartments,dataScopeForUser,ticketReferenceAllowed} from '@/lib/auth/data-scope';
-export async function POST(req:Request){const auth=await requireApiUser('AGENT');if(!auth.ok)return NextResponse.json({success:false,error:auth.error},{status:auth.status});if(!canAccessDepartments(auth.user,['TICKETING','OPERATIONS','MANAGEMENT']))return NextResponse.json({success:false,error:'forbidden_department'},{status:403});if(!(await getSetting<boolean>('ticketing.delivery_enabled')))return NextResponse.json({success:false,error:'ticketing_delivery_disabled'},{status:403});try{const body=await req.json();if(!body?.reference)return NextResponse.json({success:false,error:'reference_required'},{status:400});const reference=String(body.reference);if(!(await ticketReferenceAllowed(dataScopeForUser(auth.user),reference)))return NextResponse.json({success:false,error:'forbidden_scope'},{status:403});const result=await deliverTicket(reference);await audit({userId:auth.user.id,action:'TICKET_DELIVER',entity:'Ticket',metadata:{reference,status:result.status,country:auth.user.country||null}});return NextResponse.json(result);}catch(e){return NextResponse.json({success:false,error:e instanceof Error?e.message:'delivery_failed'},{status:400});}}
+import { canAccessDepartments, dataScopeForUser, ticketReferenceAllowed } from '@/lib/auth/data-scope';
+export async function POST(req: Request) {
+  const auth = await requireApiUser('AGENT');
+  if (!auth.ok) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+  if (!canAccessDepartments(auth.user, ['TICKETING', 'OPERATIONS', 'MANAGEMENT']))
+    return NextResponse.json({ success: false, error: 'forbidden_department' }, { status: 403 });
+  if (!(await getSetting<boolean>('ticketing.delivery_enabled')))
+    return NextResponse.json({ success: false, error: 'ticketing_delivery_disabled' }, { status: 403 });
+  try {
+    const body = await req.json();
+    if (!body?.reference)
+      return NextResponse.json({ success: false, error: 'reference_required' }, { status: 400 });
+    const reference = String(body.reference);
+    if (!(await ticketReferenceAllowed(dataScopeForUser(auth.user), reference)))
+      return NextResponse.json({ success: false, error: 'forbidden_scope' }, { status: 403 });
+    const result = await deliverTicket(reference);
+    await audit({
+      userId: auth.user.id,
+      action: 'TICKET_DELIVER',
+      entity: 'Ticket',
+      metadata: { reference, status: result.status, country: auth.user.country || null },
+    });
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json(
+      { success: false, error: e instanceof Error ? e.message : 'delivery_failed' },
+      { status: 400 },
+    );
+  }
+}

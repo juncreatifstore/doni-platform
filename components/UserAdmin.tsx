@@ -1,25 +1,481 @@
 'use client';
-import {useEffect,useState} from 'react';
-import {notifyAction} from '@/components/workspace/ActionFeedback';
-import {fetchWithStepUp} from '@/lib/auth/step-up-client';
-type U={id:string;username:string;fullName:string|null;email:string|null;role:string;orgRole:string;country:string|null;department:string|null;active:boolean;lastLoginAt:string|null};
-type Scope={orgRole:string;country:string|null;department:string|null};
-const departments=[['','Équipe générale'],['RESERVATIONS','Réservations'],['CUSTOMER_SERVICE','Service client'],['TICKETING','Ticketing'],['FLIGHT_OPS','Flight Ops'],['FINANCE','Finance'],['MARKETING','Marketing'],['OPERATIONS','Opérations'],['MANAGEMENT','Direction']];
-const roleLabels:Record<string,string>={SUPER_ADMIN:'Super Admin · Direction',COUNTRY_ADMIN:'Admin pays',SECTION_MANAGER:'Responsable de section',AGENT:'Agent',PARTNER:'Partenaire'};
-const initialForm={username:'',fullName:'',email:'',password:'',orgRole:'AGENT',country:'',department:''};
-const stepLabels=['Identité','Sécurité','Rôle & périmètre'];
-export function UserAdmin(){
- const[users,setUsers]=useState<U[]>([]),[form,setForm]=useState(initialForm),[step,setStep]=useState(1),[busy,setBusy]=useState(''),[loading,setLoading]=useState(true),[availableRoles,setAvailableRoles]=useState<string[]>([]),[scope,setScope]=useState<Scope|null>(null);
- async function load(){setLoading(true);try{const r=await fetch('/api/admin/users',{cache:'no-store'});const j=await r.json().catch(()=>({}));if(r.ok){setUsers(j.users||[]);setAvailableRoles(j.availableRoles||[]);setScope(j.scope||null);setForm(x=>({...x,orgRole:(j.availableRoles||[]).includes(x.orgRole)?x.orgRole:(j.availableRoles||[])[0]||'AGENT',country:j.scope?.orgRole==='SUPER_ADMIN'?x.country:(j.scope?.country||x.country),department:j.scope?.orgRole==='SECTION_MANAGER'?(j.scope?.department||''):x.department}))}else notifyAction({tone:'error',title:'Chargement impossible',message:'La liste des utilisateurs n’a pas pu être chargée.'})}catch{notifyAction({tone:'error',title:'Connexion interrompue',message:'Impossible de charger les utilisateurs.'})}finally{setLoading(false)}}
- useEffect(()=>{load()},[]);
- const needsCountry=['COUNTRY_ADMIN','SECTION_MANAGER','AGENT'].includes(form.orgRole),needsDepartment=['SECTION_MANAGER','AGENT'].includes(form.orgRole);
- function validate(n:number){if(n===1){const username=form.username.trim();if(username.length<3){notifyAction({tone:'error',title:'Identifiant invalide',message:'L’identifiant doit contenir au moins 3 caractères.'});return false}if(form.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())){notifyAction({tone:'error',title:'Email invalide',message:'Vérifie l’adresse email avant de continuer.'});return false}setForm(x=>({...x,username,email:x.email.trim(),fullName:x.fullName.trim()}));return true}if(n===2){if(form.password.length<10){notifyAction({tone:'error',title:'Mot de passe trop court',message:'Utilise au moins 10 caractères.'});return false}return true}if(!availableRoles.includes(form.orgRole)){notifyAction({tone:'error',title:'Rôle non autorisé',message:'Choisis un rôle disponible pour ton niveau de responsabilité.'});return false}if(needsCountry&&!form.country.trim()){notifyAction({tone:'error',title:'Pays obligatoire',message:'Indique le pays dans lequel cet utilisateur travaillera.'});return false}if(needsDepartment&&!form.department){notifyAction({tone:'error',title:'Département obligatoire',message:'Choisis le département de cet utilisateur.'});return false}return true}
- function next(){if(validate(step))setStep(x=>Math.min(3,x+1))}
- function stepUpMessage(e:unknown){const m=e instanceof Error?e.message:'';if(m==='step_up_cancelled')return 'Validation de sécurité annulée.';if(m==='mfa_not_configured')return 'Configure d’abord une Passkey ou Google Authenticator dans Sécurité du compte.';return 'La validation de sécurité a échoué.'}
- async function create(){if(busy||!validate(1)||!validate(2)||!validate(3))return;setBusy('create');try{const payload={...form,country:needsCountry?form.country.trim().toUpperCase():'',department:needsDepartment?form.department:''};const r=await fetchWithStepUp('/api/admin/users',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const j=await r.json().catch(()=>({}));if(r.ok){const fixedCountry=scope?.orgRole==='SUPER_ADMIN'?'':scope?.country||'';setForm({...initialForm,orgRole:availableRoles[0]||'AGENT',country:fixedCountry,department:scope?.orgRole==='SECTION_MANAGER'?scope.department||'':''});setStep(1);await load();notifyAction({tone:'success',title:'Utilisateur créé',message:'Le compte a été créé dans le bon niveau hiérarchique et le bon périmètre.'})}else notifyAction({tone:'error',title:'Création impossible',message:j.error||'Le compte n’a pas été créé. Vérifie le rôle, le pays et le département.'})}catch(e){notifyAction({tone:'error',title:'Validation requise',message:stepUpMessage(e)})}finally{setBusy('')}}
- async function patch(u:U,data:Record<string,unknown>,label:string){if(busy)return;setBusy(u.id);try{const r=await fetchWithStepUp(`/api/admin/users/${u.id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(data)});const j=await r.json().catch(()=>({}));if(r.ok){await load();notifyAction({tone:'success',title:'Utilisateur mis à jour',message:label})}else notifyAction({tone:'error',title:'Modification impossible',message:j.error||'La modification n’a pas été enregistrée.'})}catch(e){notifyAction({tone:'error',title:'Validation requise',message:stepUpMessage(e)})}finally{setBusy('')}}
- return <><div className="card" aria-busy={busy==='create'}><h2>Créer un utilisateur</h2><p className="muted userAdminIntro">Hiérarchie DONI : Direction → Admin pays → Responsable de section → Agent. Les partenaires sont hors de la chaîne opérationnelle. Le mot de passe n’est jamais enregistré comme brouillon.</p><div className="doniStepper"><div className="doniStepperNav" aria-label="Progression de création utilisateur">{stepLabels.map((label,i)=>{const n=i+1;return <div key={label} className={`doniStep ${step===n?'isActive':''} ${step>n?'isDone':''}`} aria-current={step===n?'step':undefined}><span>{step>n?'✓':n}</span>{label}</div>})}</div><p className="doniStepProgress">Étape {step} sur 3</p>
- <section className="doniStepPanel" hidden={step!==1} aria-label="Identité utilisateur"><div className="doniStepGrid"><label className="doniStepField">Identifiant<input autoComplete="off" value={form.username} disabled={!!busy} onChange={e=>setForm({...form,username:e.target.value})} placeholder="username"/></label><label className="doniStepField">Nom complet<input value={form.fullName} disabled={!!busy} onChange={e=>setForm({...form,fullName:e.target.value})} placeholder="Nom complet"/></label><label className="doniStepField">Email<input type="email" value={form.email} disabled={!!busy} onChange={e=>setForm({...form,email:e.target.value})} placeholder="Email"/></label></div><div className="doniStepActions"><span/><button type="button" className="btn primary" onClick={next} disabled={!!busy}>Continuer →</button></div></section>
- <section className="doniStepPanel" hidden={step!==2} aria-label="Sécurité du compte"><div className="doniStepGrid"><label className="doniStepField">Mot de passe temporaire<input type="password" autoComplete="new-password" minLength={10} value={form.password} disabled={!!busy} onChange={e=>setForm({...form,password:e.target.value})} placeholder="10 caractères minimum"/></label></div><p className="doniStepHint">Cette valeur reste seulement en mémoire jusqu’à la création du compte.</p><div className="doniStepActions"><button type="button" className="btn" onClick={()=>setStep(1)} disabled={!!busy}>← Retour</button><button type="button" className="btn primary" onClick={next} disabled={!!busy}>Continuer →</button></div></section>
- <section className="doniStepPanel" hidden={step!==3} aria-label="Rôle et périmètre"><div className="doniStepGrid"><label className="doniStepField">Rôle organisationnel<select value={form.orgRole} disabled={!!busy} onChange={e=>setForm({...form,orgRole:e.target.value,department:['SUPER_ADMIN','PARTNER','COUNTRY_ADMIN'].includes(e.target.value)?'':form.department,country:e.target.value==='SUPER_ADMIN'?'':form.country})}>{availableRoles.map(r=><option key={r} value={r}>{roleLabels[r]||r}</option>)}</select></label>{needsCountry?<label className="doniStepField">Pays / code pays<input value={form.country} disabled={!!busy||scope?.orgRole!=='SUPER_ADMIN'} onChange={e=>setForm({...form,country:e.target.value.toUpperCase()})} placeholder="Ex. MX, HT, DO, US"/></label>:null}{needsDepartment?<label className="doniStepField">Département<select value={form.department} disabled={!!busy||scope?.orgRole==='SECTION_MANAGER'} onChange={e=>setForm({...form,department:e.target.value})}>{departments.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>:null}</div><div className="doniStepSummary" aria-label="Résumé du compte"><div><span>Utilisateur</span><strong>{form.fullName||form.username||'—'}</strong></div><div><span>Rôle</span><strong>{roleLabels[form.orgRole]||form.orgRole}</strong></div><div><span>Pays</span><strong>{needsCountry?form.country||'—':'Global / non opérationnel'}</strong></div><div><span>Département</span><strong>{needsDepartment?(departments.find(([v])=>v===form.department)?.[1]||'—'):'Non applicable'}</strong></div></div>{form.orgRole==='SUPER_ADMIN'?<p className="doniStepHint"><strong>Attention :</strong> ce niveau donne l’accès global à DONI.</p>:form.orgRole==='PARTNER'?<p className="doniStepHint">Le partenaire est hors de la chaîne de commandement opérationnelle.</p>:null}<div className="doniStepActions"><button type="button" className="btn" onClick={()=>setStep(2)} disabled={!!busy}>← Retour</button><button type="button" className="btn primary" onClick={create} disabled={!!busy}>{busy==='create'?'Création…':'Créer le compte'}</button></div></section></div></div>
- <div className="card"><h2>Utilisateurs & équipes</h2><div className="tableWrap"><table className="table"><thead><tr><th>Utilisateur</th><th>Rôle</th><th>Pays</th><th>Département</th><th>Statut</th><th>Dernière connexion</th><th></th></tr></thead><tbody>{loading?<tr><td colSpan={7}>Chargement…</td></tr>:users.map(u=><tr key={u.id} aria-busy={busy===u.id}><td><b>{u.fullName||u.username}</b><br/><span className="muted">{u.username}</span></td><td><span className="roleChip">{roleLabels[u.orgRole]||u.orgRole}</span></td><td>{u.country||'Global'}</td><td>{departments.find(([v])=>v===(u.department||''))?.[1]||'—'}</td><td><span className={`badge ${u.active?'ok':'warn'}`}>{u.active?'Actif':'Désactivé'}</span></td><td>{u.lastLoginAt?new Date(u.lastLoginAt).toLocaleString():'—'}</td><td><button className="btn" disabled={!!busy} onClick={()=>{if(u.active&&!confirm(`Désactiver le compte ${u.username} ?`))return;patch(u,{active:!u.active},u.active?'Le compte a été désactivé.':'Le compte a été réactivé.')}}>{busy===u.id?'Enregistrement…':u.active?'Désactiver':'Activer'}</button></td></tr>)}</tbody></table>{!loading&&!users.length?<div className="emptyState">Aucun utilisateur dans ton périmètre.</div>:null}</div></div></>}
+import { useEffect, useState } from 'react';
+import { notifyAction } from '@/components/workspace/ActionFeedback';
+import { fetchWithStepUp } from '@/lib/auth/step-up-client';
+type U = {
+  id: string;
+  username: string;
+  fullName: string | null;
+  email: string | null;
+  role: string;
+  orgRole: string;
+  country: string | null;
+  department: string | null;
+  active: boolean;
+  lastLoginAt: string | null;
+};
+type Scope = { orgRole: string; country: string | null; department: string | null };
+const departments = [
+  ['', 'Équipe générale'],
+  ['RESERVATIONS', 'Réservations'],
+  ['CUSTOMER_SERVICE', 'Service client'],
+  ['TICKETING', 'Ticketing'],
+  ['FLIGHT_OPS', 'Flight Ops'],
+  ['FINANCE', 'Finance'],
+  ['MARKETING', 'Marketing'],
+  ['OPERATIONS', 'Opérations'],
+  ['MANAGEMENT', 'Direction'],
+];
+const roleLabels: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin · Direction',
+  COUNTRY_ADMIN: 'Admin pays',
+  SECTION_MANAGER: 'Responsable de section',
+  AGENT: 'Agent',
+  PARTNER: 'Partenaire',
+};
+const initialForm = {
+  username: '',
+  fullName: '',
+  email: '',
+  password: '',
+  orgRole: 'AGENT',
+  country: '',
+  department: '',
+};
+const stepLabels = ['Identité', 'Sécurité', 'Rôle & périmètre'];
+export function UserAdmin() {
+  const [users, setUsers] = useState<U[]>([]),
+    [form, setForm] = useState(initialForm),
+    [step, setStep] = useState(1),
+    [busy, setBusy] = useState(''),
+    [loading, setLoading] = useState(true),
+    [availableRoles, setAvailableRoles] = useState<string[]>([]),
+    [scope, setScope] = useState<Scope | null>(null);
+  async function load() {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/admin/users', { cache: 'no-store' });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        setUsers(j.users || []);
+        setAvailableRoles(j.availableRoles || []);
+        setScope(j.scope || null);
+        setForm((x) => ({
+          ...x,
+          orgRole: (j.availableRoles || []).includes(x.orgRole)
+            ? x.orgRole
+            : (j.availableRoles || [])[0] || 'AGENT',
+          country: j.scope?.orgRole === 'SUPER_ADMIN' ? x.country : j.scope?.country || x.country,
+          department: j.scope?.orgRole === 'SECTION_MANAGER' ? j.scope?.department || '' : x.department,
+        }));
+      } else
+        notifyAction({
+          tone: 'error',
+          title: 'Chargement impossible',
+          message: 'La liste des utilisateurs n’a pas pu être chargée.',
+        });
+    } catch {
+      notifyAction({
+        tone: 'error',
+        title: 'Connexion interrompue',
+        message: 'Impossible de charger les utilisateurs.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, []);
+  const needsCountry = ['COUNTRY_ADMIN', 'SECTION_MANAGER', 'AGENT'].includes(form.orgRole),
+    needsDepartment = ['SECTION_MANAGER', 'AGENT'].includes(form.orgRole);
+  function validate(n: number) {
+    if (n === 1) {
+      const username = form.username.trim();
+      if (username.length < 3) {
+        notifyAction({
+          tone: 'error',
+          title: 'Identifiant invalide',
+          message: 'L’identifiant doit contenir au moins 3 caractères.',
+        });
+        return false;
+      }
+      if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+        notifyAction({
+          tone: 'error',
+          title: 'Email invalide',
+          message: 'Vérifie l’adresse email avant de continuer.',
+        });
+        return false;
+      }
+      setForm((x) => ({ ...x, username, email: x.email.trim(), fullName: x.fullName.trim() }));
+      return true;
+    }
+    if (n === 2) {
+      if (form.password.length < 10) {
+        notifyAction({
+          tone: 'error',
+          title: 'Mot de passe trop court',
+          message: 'Utilise au moins 10 caractères.',
+        });
+        return false;
+      }
+      return true;
+    }
+    if (!availableRoles.includes(form.orgRole)) {
+      notifyAction({
+        tone: 'error',
+        title: 'Rôle non autorisé',
+        message: 'Choisis un rôle disponible pour ton niveau de responsabilité.',
+      });
+      return false;
+    }
+    if (needsCountry && !form.country.trim()) {
+      notifyAction({
+        tone: 'error',
+        title: 'Pays obligatoire',
+        message: 'Indique le pays dans lequel cet utilisateur travaillera.',
+      });
+      return false;
+    }
+    if (needsDepartment && !form.department) {
+      notifyAction({
+        tone: 'error',
+        title: 'Département obligatoire',
+        message: 'Choisis le département de cet utilisateur.',
+      });
+      return false;
+    }
+    return true;
+  }
+  function next() {
+    if (validate(step)) setStep((x) => Math.min(3, x + 1));
+  }
+  function stepUpMessage(e: unknown) {
+    const m = e instanceof Error ? e.message : '';
+    if (m === 'step_up_cancelled') return 'Validation de sécurité annulée.';
+    if (m === 'mfa_not_configured')
+      return 'Configure d’abord une Passkey ou Google Authenticator dans Sécurité du compte.';
+    return 'La validation de sécurité a échoué.';
+  }
+  async function create() {
+    if (busy || !validate(1) || !validate(2) || !validate(3)) return;
+    setBusy('create');
+    try {
+      const payload = {
+        ...form,
+        country: needsCountry ? form.country.trim().toUpperCase() : '',
+        department: needsDepartment ? form.department : '',
+      };
+      const r = await fetchWithStepUp('/api/admin/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        const fixedCountry = scope?.orgRole === 'SUPER_ADMIN' ? '' : scope?.country || '';
+        setForm({
+          ...initialForm,
+          orgRole: availableRoles[0] || 'AGENT',
+          country: fixedCountry,
+          department: scope?.orgRole === 'SECTION_MANAGER' ? scope.department || '' : '',
+        });
+        setStep(1);
+        await load();
+        notifyAction({
+          tone: 'success',
+          title: 'Utilisateur créé',
+          message: 'Le compte a été créé dans le bon niveau hiérarchique et le bon périmètre.',
+        });
+      } else
+        notifyAction({
+          tone: 'error',
+          title: 'Création impossible',
+          message: j.error || 'Le compte n’a pas été créé. Vérifie le rôle, le pays et le département.',
+        });
+    } catch (e) {
+      notifyAction({ tone: 'error', title: 'Validation requise', message: stepUpMessage(e) });
+    } finally {
+      setBusy('');
+    }
+  }
+  async function patch(u: U, data: Record<string, unknown>, label: string) {
+    if (busy) return;
+    setBusy(u.id);
+    try {
+      const r = await fetchWithStepUp(`/api/admin/users/${u.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        await load();
+        notifyAction({ tone: 'success', title: 'Utilisateur mis à jour', message: label });
+      } else
+        notifyAction({
+          tone: 'error',
+          title: 'Modification impossible',
+          message: j.error || 'La modification n’a pas été enregistrée.',
+        });
+    } catch (e) {
+      notifyAction({ tone: 'error', title: 'Validation requise', message: stepUpMessage(e) });
+    } finally {
+      setBusy('');
+    }
+  }
+  return (
+    <>
+      <div className="card" aria-busy={busy === 'create'}>
+        <h2>Créer un utilisateur</h2>
+        <p className="muted userAdminIntro">
+          Hiérarchie DONI : Direction → Admin pays → Responsable de section → Agent. Les partenaires sont hors
+          de la chaîne opérationnelle. Le mot de passe n’est jamais enregistré comme brouillon.
+        </p>
+        <div className="doniStepper">
+          <div className="doniStepperNav" aria-label="Progression de création utilisateur">
+            {stepLabels.map((label, i) => {
+              const n = i + 1;
+              return (
+                <div
+                  key={label}
+                  className={`doniStep ${step === n ? 'isActive' : ''} ${step > n ? 'isDone' : ''}`}
+                  aria-current={step === n ? 'step' : undefined}
+                >
+                  <span>{step > n ? '✓' : n}</span>
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+          <p className="doniStepProgress">Étape {step} sur 3</p>
+          <section className="doniStepPanel" hidden={step !== 1} aria-label="Identité utilisateur">
+            <div className="doniStepGrid">
+              <label className="doniStepField">
+                Identifiant
+                <input
+                  autoComplete="off"
+                  value={form.username}
+                  disabled={!!busy}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  placeholder="username"
+                />
+              </label>
+              <label className="doniStepField">
+                Nom complet
+                <input
+                  value={form.fullName}
+                  disabled={!!busy}
+                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                  placeholder="Nom complet"
+                />
+              </label>
+              <label className="doniStepField">
+                Email
+                <input
+                  type="email"
+                  value={form.email}
+                  disabled={!!busy}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="Email"
+                />
+              </label>
+            </div>
+            <div className="doniStepActions">
+              <span />
+              <button type="button" className="btn primary" onClick={next} disabled={!!busy}>
+                Continuer →
+              </button>
+            </div>
+          </section>
+          <section className="doniStepPanel" hidden={step !== 2} aria-label="Sécurité du compte">
+            <div className="doniStepGrid">
+              <label className="doniStepField">
+                Mot de passe temporaire
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={10}
+                  value={form.password}
+                  disabled={!!busy}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  placeholder="10 caractères minimum"
+                />
+              </label>
+            </div>
+            <p className="doniStepHint">
+              Cette valeur reste seulement en mémoire jusqu’à la création du compte.
+            </p>
+            <div className="doniStepActions">
+              <button type="button" className="btn" onClick={() => setStep(1)} disabled={!!busy}>
+                ← Retour
+              </button>
+              <button type="button" className="btn primary" onClick={next} disabled={!!busy}>
+                Continuer →
+              </button>
+            </div>
+          </section>
+          <section className="doniStepPanel" hidden={step !== 3} aria-label="Rôle et périmètre">
+            <div className="doniStepGrid">
+              <label className="doniStepField">
+                Rôle organisationnel
+                <select
+                  value={form.orgRole}
+                  disabled={!!busy}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      orgRole: e.target.value,
+                      department: ['SUPER_ADMIN', 'PARTNER', 'COUNTRY_ADMIN'].includes(e.target.value)
+                        ? ''
+                        : form.department,
+                      country: e.target.value === 'SUPER_ADMIN' ? '' : form.country,
+                    })
+                  }
+                >
+                  {availableRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {roleLabels[r] || r}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {needsCountry ? (
+                <label className="doniStepField">
+                  Pays / code pays
+                  <input
+                    value={form.country}
+                    disabled={!!busy || scope?.orgRole !== 'SUPER_ADMIN'}
+                    onChange={(e) => setForm({ ...form, country: e.target.value.toUpperCase() })}
+                    placeholder="Ex. MX, HT, DO, US"
+                  />
+                </label>
+              ) : null}
+              {needsDepartment ? (
+                <label className="doniStepField">
+                  Département
+                  <select
+                    value={form.department}
+                    disabled={!!busy || scope?.orgRole === 'SECTION_MANAGER'}
+                    onChange={(e) => setForm({ ...form, department: e.target.value })}
+                  >
+                    {departments.map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+            <div className="doniStepSummary" aria-label="Résumé du compte">
+              <div>
+                <span>Utilisateur</span>
+                <strong>{form.fullName || form.username || '—'}</strong>
+              </div>
+              <div>
+                <span>Rôle</span>
+                <strong>{roleLabels[form.orgRole] || form.orgRole}</strong>
+              </div>
+              <div>
+                <span>Pays</span>
+                <strong>{needsCountry ? form.country || '—' : 'Global / non opérationnel'}</strong>
+              </div>
+              <div>
+                <span>Département</span>
+                <strong>
+                  {needsDepartment
+                    ? departments.find(([v]) => v === form.department)?.[1] || '—'
+                    : 'Non applicable'}
+                </strong>
+              </div>
+            </div>
+            {form.orgRole === 'SUPER_ADMIN' ? (
+              <p className="doniStepHint">
+                <strong>Attention :</strong> ce niveau donne l’accès global à DONI.
+              </p>
+            ) : form.orgRole === 'PARTNER' ? (
+              <p className="doniStepHint">
+                Le partenaire est hors de la chaîne de commandement opérationnelle.
+              </p>
+            ) : null}
+            <div className="doniStepActions">
+              <button type="button" className="btn" onClick={() => setStep(2)} disabled={!!busy}>
+                ← Retour
+              </button>
+              <button type="button" className="btn primary" onClick={create} disabled={!!busy}>
+                {busy === 'create' ? 'Création…' : 'Créer le compte'}
+              </button>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div className="card">
+        <h2>Utilisateurs & équipes</h2>
+        <div className="tableWrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Utilisateur</th>
+                <th>Rôle</th>
+                <th>Pays</th>
+                <th>Département</th>
+                <th>Statut</th>
+                <th>Dernière connexion</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7}>Chargement…</td>
+                </tr>
+              ) : (
+                users.map((u) => (
+                  <tr key={u.id} aria-busy={busy === u.id}>
+                    <td>
+                      <b>{u.fullName || u.username}</b>
+                      <br />
+                      <span className="muted">{u.username}</span>
+                    </td>
+                    <td>
+                      <span className="roleChip">{roleLabels[u.orgRole] || u.orgRole}</span>
+                    </td>
+                    <td>{u.country || 'Global'}</td>
+                    <td>{departments.find(([v]) => v === (u.department || ''))?.[1] || '—'}</td>
+                    <td>
+                      <span className={`badge ${u.active ? 'ok' : 'warn'}`}>
+                        {u.active ? 'Actif' : 'Désactivé'}
+                      </span>
+                    </td>
+                    <td>{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—'}</td>
+                    <td>
+                      <button
+                        className="btn"
+                        disabled={!!busy}
+                        onClick={() => {
+                          if (u.active && !confirm(`Désactiver le compte ${u.username} ?`)) return;
+                          patch(
+                            u,
+                            { active: !u.active },
+                            u.active ? 'Le compte a été désactivé.' : 'Le compte a été réactivé.',
+                          );
+                        }}
+                      >
+                        {busy === u.id ? 'Enregistrement…' : u.active ? 'Désactiver' : 'Activer'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          {!loading && !users.length ? (
+            <div className="emptyState">Aucun utilisateur dans ton périmètre.</div>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+}

@@ -5,61 +5,155 @@ import type { PortalUser, UserRole } from '@prisma/client';
 import { db } from '@/lib/db';
 import { hasRole } from './permissions';
 import { getUserDepartment, type Department } from './departments';
-import {getUserOrgRole,type OrgRole} from './org-roles';
-import {recordSessionMetadata} from './session-security';
-import {upsertInternalNotification} from '@/lib/workspace/notifications';
-import {getTotpStatus} from './mfa';
-import {getPasskeyStatus} from './passkeys';
-import {mfaEnrollmentState} from './mfa-policy';
-import {sessionPolicyForRole} from './session-policy';
+import { getUserOrgRole, type OrgRole } from './org-roles';
+import { recordSessionMetadata } from './session-security';
+import { upsertInternalNotification } from '@/lib/workspace/notifications';
+import { getTotpStatus } from './mfa';
+import { getPasskeyStatus } from './passkeys';
+import { mfaEnrollmentState } from './mfa-policy';
+import { sessionPolicyForRole } from './session-policy';
 
 export const SESSION_COOKIE = 'doni_session';
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
-const SESSION_META_PREFIX='auth.session.meta.';
+const SESSION_META_PREFIX = 'auth.session.meta.';
 
-export type SafeUser = Pick<PortalUser,'id'|'username'|'fullName'|'email'|'role'|'country'|'active'> & {department:Department|null;orgRole:OrgRole};
-export function safeUser(u: PortalUser, department:Department|null=null,orgRole:OrgRole='AGENT'): SafeUser { return { id:u.id,username:u.username,fullName:u.fullName,email:u.email,role:u.role,country:u.country,active:u.active,department,orgRole }; }
+export type SafeUser = Pick<
+  PortalUser,
+  'id' | 'username' | 'fullName' | 'email' | 'role' | 'country' | 'active'
+> & { department: Department | null; orgRole: OrgRole };
+export function safeUser(
+  u: PortalUser,
+  department: Department | null = null,
+  orgRole: OrgRole = 'AGENT',
+): SafeUser {
+  return {
+    id: u.id,
+    username: u.username,
+    fullName: u.fullName,
+    email: u.email,
+    role: u.role,
+    country: u.country,
+    active: u.active,
+    department,
+    orgRole,
+  };
+}
 
-async function cleanupSessionMetadata(sessionIds:string[]){if(!sessionIds.length)return;await db.appSetting.deleteMany({where:{key:{in:sessionIds.map(id=>`${SESSION_META_PREFIX}${id}`)}}}).catch(()=>{});}
+async function cleanupSessionMetadata(sessionIds: string[]) {
+  if (!sessionIds.length) return;
+  await db.appSetting
+    .deleteMany({ where: { key: { in: sessionIds.map((id) => `${SESSION_META_PREFIX}${id}`) } } })
+    .catch(() => {});
+}
 
-async function trimSessionsForUser(userId:string,maxConcurrent:number){const rows=await db.portalSession.findMany({where:{userId},orderBy:{createdAt:'desc'},select:{id:true}});const overflow=rows.slice(maxConcurrent);if(!overflow.length)return 0;const ids=overflow.map(r=>r.id);await db.portalSession.deleteMany({where:{id:{in:ids},userId}});await cleanupSessionMetadata(ids);return ids.length;}
+async function trimSessionsForUser(userId: string, maxConcurrent: number) {
+  const rows = await db.portalSession.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  });
+  const overflow = rows.slice(maxConcurrent);
+  if (!overflow.length) return 0;
+  const ids = overflow.map((r) => r.id);
+  await db.portalSession.deleteMany({ where: { id: { in: ids }, userId } });
+  await cleanupSessionMetadata(ids);
+  return ids.length;
+}
 
-export async function createPortalSession(userId: string, req?:Request, mfaMethod?:string|null) {
-  const user=await db.portalUser.findUnique({where:{id:userId},select:{role:true}});
-  if(!user)throw new Error('user_not_found');
-  const orgRole=await getUserOrgRole(userId,user.role);
-  const policy=sessionPolicyForRole(orgRole);
+export async function createPortalSession(userId: string, req?: Request, mfaMethod?: string | null) {
+  const user = await db.portalUser.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user) throw new Error('user_not_found');
+  const orgRole = await getUserOrgRole(userId, user.role);
+  const policy = sessionPolicyForRole(orgRole);
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + policy.lifetimeHours * 3600000);
-  const session=await db.portalSession.create({data:{userId,tokenHash:hashToken(token),expiresAt},select:{id:true}});
-  await recordSessionMetadata(session.id,req,mfaMethod);
-  await trimSessionsForUser(userId,policy.maxConcurrent);
-  await upsertInternalNotification({recipientId:userId,title:'Nouvelle connexion à DONI',message:'Une nouvelle session vient d’être ouverte sur ton compte. Si ce n’était pas toi, révoque immédiatement les autres sessions depuis Sécurité du compte.',severity:'WARNING',href:'/security',dedupeKey:`auth:new-session:${session.id}`}).catch(()=>{});
+  const session = await db.portalSession.create({
+    data: { userId, tokenHash: hashToken(token), expiresAt },
+    select: { id: true },
+  });
+  await recordSessionMetadata(session.id, req, mfaMethod);
+  await trimSessionsForUser(userId, policy.maxConcurrent);
+  await upsertInternalNotification({
+    recipientId: userId,
+    title: 'Nouvelle connexion à DONI',
+    message:
+      'Une nouvelle session vient d’être ouverte sur ton compte. Si ce n’était pas toi, révoque immédiatement les autres sessions depuis Sécurité du compte.',
+    severity: 'WARNING',
+    href: '/security',
+    dedupeKey: `auth:new-session:${session.id}`,
+  }).catch(() => {});
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, token, { httpOnly:true, sameSite:'lax', secure:process.env.NODE_ENV==='production', path:'/', expires:expiresAt });
+  jar.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    expires: expiresAt,
+  });
   return expiresAt;
 }
 export async function destroyPortalSession() {
-  const jar=await cookies(); const token=jar.get(SESSION_COOKIE)?.value;
-  if(token){const row=await db.portalSession.findUnique({where:{tokenHash:hashToken(token)},select:{id:true}}).catch(()=>null);await db.portalSession.deleteMany({where:{tokenHash:hashToken(token)}}).catch(()=>{});if(row)await cleanupSessionMetadata([row.id]);}
-  jar.set(SESSION_COOKIE,'',{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:0});
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (token) {
+    const row = await db.portalSession
+      .findUnique({ where: { tokenHash: hashToken(token) }, select: { id: true } })
+      .catch(() => null);
+    await db.portalSession.deleteMany({ where: { tokenHash: hashToken(token) } }).catch(() => {});
+    if (row) await cleanupSessionMetadata([row.id]);
+  }
+  jar.set(SESSION_COOKIE, '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 0,
+  });
 }
-export async function getCurrentUser(): Promise<SafeUser|null> {
-  const jar=await cookies(); const token=jar.get(SESSION_COOKIE)?.value; if(!token)return null;
-  const session=await db.portalSession.findUnique({where:{tokenHash:hashToken(token)},include:{user:true}});
-  if(!session || session.expiresAt<=new Date() || !session.user.active){ if(session){await db.portalSession.delete({where:{id:session.id}}).catch(()=>{});await cleanupSessionMetadata([session.id]);} return null; }
-  const [department,orgRole]=await Promise.all([getUserDepartment(session.user.id),getUserOrgRole(session.user.id,session.user.role)]);
-  return safeUser(session.user,department,orgRole);
+export async function getCurrentUser(): Promise<SafeUser | null> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = await db.portalSession.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { user: true },
+  });
+  if (!session || session.expiresAt <= new Date() || !session.user.active) {
+    if (session) {
+      await db.portalSession.delete({ where: { id: session.id } }).catch(() => {});
+      await cleanupSessionMetadata([session.id]);
+    }
+    return null;
+  }
+  const [department, orgRole] = await Promise.all([
+    getUserDepartment(session.user.id),
+    getUserOrgRole(session.user.id, session.user.role),
+  ]);
+  return safeUser(session.user, department, orgRole);
 }
-export async function getMfaEnrollmentStateForUser(user:SafeUser){const [totp,passkey]=await Promise.all([getTotpStatus(user.id),getPasskeyStatus(user.id)]);return mfaEnrollmentState(user.orgRole,totp.enabled,passkey.enabled);}
-export async function requirePageUser(minimum:UserRole='AGENT',options?:{allowMfaEnrollment?:boolean}) {
-  const user=await getCurrentUser(); if(!user) redirect('/login'); if(!hasRole(user.role,minimum)) redirect('/overview?forbidden=1');
-  if(!options?.allowMfaEnrollment){const enrollment=await getMfaEnrollmentStateForUser(user);if(enrollment.required&&!enrollment.compliant)redirect(`/security?enrollment_required=1&reason=${encodeURIComponent(enrollment.reason||'mfa_enrollment_required')}`);}
+export async function getMfaEnrollmentStateForUser(user: SafeUser) {
+  const [totp, passkey] = await Promise.all([getTotpStatus(user.id), getPasskeyStatus(user.id)]);
+  return mfaEnrollmentState(user.orgRole, totp.enabled, passkey.enabled);
+}
+export async function requirePageUser(
+  minimum: UserRole = 'AGENT',
+  options?: { allowMfaEnrollment?: boolean },
+) {
+  const user = await getCurrentUser();
+  if (!user) redirect('/login');
+  if (!hasRole(user.role, minimum)) redirect('/overview?forbidden=1');
+  if (!options?.allowMfaEnrollment) {
+    const enrollment = await getMfaEnrollmentStateForUser(user);
+    if (enrollment.required && !enrollment.compliant)
+      redirect(
+        `/security?enrollment_required=1&reason=${encodeURIComponent(enrollment.reason || 'mfa_enrollment_required')}`,
+      );
+  }
   return user;
 }
-export async function requireApiUser(minimum:UserRole='AGENT') {
-  const user=await getCurrentUser();
-  if(!user) return {ok:false as const,status:401,error:'unauthenticated'};
-  if(!hasRole(user.role,minimum)) return {ok:false as const,status:403,error:'forbidden'};
-  return {ok:true as const,user};
+export async function requireApiUser(minimum: UserRole = 'AGENT') {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false as const, status: 401, error: 'unauthenticated' };
+  if (!hasRole(user.role, minimum)) return { ok: false as const, status: 403, error: 'forbidden' };
+  return { ok: true as const, user };
 }

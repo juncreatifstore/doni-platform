@@ -50,7 +50,9 @@ export class PostBookingSegment extends BaseSegment {
 
     let ticket = await db.ticket.findUnique({ where: { reference } }).catch(() => null);
     if (!ticket) {
-      ticket = await db.ticket.findFirst({ where: { pnr: reference }, orderBy: { createdAt: 'desc' } }).catch(() => null);
+      ticket = await db.ticket
+        .findFirst({ where: { pnr: reference }, orderBy: { createdAt: 'desc' } })
+        .catch(() => null);
     }
     if (!ticket) {
       return this.retry(
@@ -89,32 +91,65 @@ export class PostBookingSegment extends BaseSegment {
     }
 
     if (choice === '5') {
-      return this.reply(null, 'segment_flight_status', { post_booking_reference: null, service_selected: 'flight_status' }, { autoChain: true });
+      return this.reply(
+        null,
+        'segment_flight_status',
+        { post_booking_reference: null, service_selected: 'flight_status' },
+        { autoChain: true },
+      );
     }
     if (/^menu$/i.test(choice)) {
-      return this.reply(null, 'segment_service_selection', { post_booking_reference: null, service_awaiting: true }, { autoChain: true });
+      return this.reply(
+        null,
+        'segment_service_selection',
+        { post_booking_reference: null, service_awaiting: true },
+        { autoChain: true },
+      );
     }
 
     const pending = String(state.post_booking_pending_type || '');
     const confirming = /^(confirmer|confirm|confirmar|konfime)$/i.test(choice);
-    const type = confirming && pending
-      ? pending
-      : choice === '2'
-        ? 'flight_change'
-        : choice === '3'
-          ? 'cancellation'
-          : choice === '4'
-            ? 'name_correction'
-            : null;
+    const type =
+      confirming && pending
+        ? pending
+        : choice === '2'
+          ? 'flight_change'
+          : choice === '3'
+            ? 'cancellation'
+            : choice === '4'
+              ? 'name_correction'
+              : null;
 
     if (!type) {
-      return this.retry(this.t(session, { fr: 'Choisissez 1, 2, 3, 4 ou 5.', en: 'Choose 1, 2, 3, 4 or 5.', es: 'Elija 1, 2, 3, 4 o 5.', ht: 'Chwazi 1, 2, 3, 4 oswa 5.' }));
+      return this.retry(
+        this.t(session, {
+          fr: 'Choisissez 1, 2, 3, 4 ou 5.',
+          en: 'Choose 1, 2, 3, 4 or 5.',
+          es: 'Elija 1, 2, 3, 4 o 5.',
+          ht: 'Chwazi 1, 2, 3, 4 oswa 5.',
+        }),
+      );
     }
 
     const labels: any = {
-      flight_change: { fr: 'changement de vol', en: 'flight change', es: 'cambio de vuelo', ht: 'chanjman vòl' },
-      cancellation: { fr: 'annulation / remboursement', en: 'cancellation / refund', es: 'cancelación / reembolso', ht: 'anilasyon / ranbousman' },
-      name_correction: { fr: 'correction de nom', en: 'name correction', es: 'corrección de nombre', ht: 'koreksyon non' },
+      flight_change: {
+        fr: 'changement de vol',
+        en: 'flight change',
+        es: 'cambio de vuelo',
+        ht: 'chanjman vòl',
+      },
+      cancellation: {
+        fr: 'annulation / remboursement',
+        en: 'cancellation / refund',
+        es: 'cancelación / reembolso',
+        ht: 'anilasyon / ranbousman',
+      },
+      name_correction: {
+        fr: 'correction de nom',
+        en: 'name correction',
+        es: 'corrección de nombre',
+        ht: 'koreksyon non',
+      },
     };
 
     if (!confirming && pending !== type) {
@@ -130,7 +165,14 @@ export class PostBookingSegment extends BaseSegment {
     }
 
     if (!confirming) {
-      return this.retry(this.t(session, { fr: 'Répondez *CONFIRMER* pour continuer.', en: 'Reply *CONFIRM* to continue.', es: 'Responda *CONFIRMAR* para continuar.', ht: 'Reponn *KONFIME* pou kontinye.' }));
+      return this.retry(
+        this.t(session, {
+          fr: 'Répondez *CONFIRMER* pour continuer.',
+          en: 'Reply *CONFIRM* to continue.',
+          es: 'Responda *CONFIRMAR* para continuar.',
+          ht: 'Reponn *KONFIME* pou kontinye.',
+        }),
+      );
     }
 
     await createPostBooking({
@@ -142,7 +184,9 @@ export class PostBookingSegment extends BaseSegment {
       clientConsentText: text,
       payload: { source: 'whatsapp', ticket_status: ticket.status, pnr: ticket.pnr },
     });
-    await db.doniConversation.update({ where: { id: session.id }, data: { agentRequired: true } }).catch(() => null);
+    await db.doniConversation
+      .update({ where: { id: session.id }, data: { agentRequired: true } })
+      .catch(() => null);
 
     return this.reply(
       this.t(session, {
@@ -152,7 +196,12 @@ export class PostBookingSegment extends BaseSegment {
         ht: `✅ Demand kreye pou *${reference}*. Yon ajan ap verifye règ yo anvan nenpòt aksyon.`,
       }),
       'segment_service_selection',
-      { post_booking_reference: null, post_booking_pending_type: null, service_awaiting: true, agentRequired: true },
+      {
+        post_booking_reference: null,
+        post_booking_pending_type: null,
+        service_awaiting: true,
+        agentRequired: true,
+      },
     );
   }
 

@@ -117,7 +117,8 @@ export async function markPaid(reference: string, provider: string, details: any
   const expected = Number(p.amount);
   const got = Number(details?.amount);
   const currency = String(details?.currency || '').toUpperCase();
-  if (Number.isFinite(got) && Math.abs(got-expected)>0.02) return { ok: false, reason: 'amount_mismatch' };
+  if (Number.isFinite(got) && Math.abs(got - expected) > 0.02)
+    return { ok: false, reason: 'amount_mismatch' };
   if (currency && currency !== p.currency.toUpperCase()) return { ok: false, reason: 'currency_mismatch' };
 
   const paid = await db.payment.update({ where: { id: p.id }, data: { status: 'PAID' } });

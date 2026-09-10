@@ -1,9 +1,9 @@
-import type {SafeUser} from '@/lib/auth/session';
+import type { SafeUser } from '@/lib/auth/session';
 
-export function canAccessMarketing(user:Pick<SafeUser,'role'|'department'>){
-  return user.role!=='AGENT'||user.department==='MARKETING';
+export function canAccessMarketing(user: Pick<SafeUser, 'role' | 'department'>) {
+  return user.role !== 'AGENT' || user.department === 'MARKETING';
 }
 
-export function canAdminMarketing(user:Pick<SafeUser,'role'>){
-  return user.role==='ADMIN'||user.role==='SUPER_ADMIN';
+export function canAdminMarketing(user: Pick<SafeUser, 'role'>) {
+  return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
 }

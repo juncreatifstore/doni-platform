@@ -1,10 +1,212 @@
 import Link from 'next/link';
-import {redirect} from 'next/navigation';
-import {DoniShell} from '@/components/DoniShell';
-import {requirePageUser} from '@/lib/auth/session';
-import {hasRole} from '@/lib/auth/permissions';
-import {MetricCard} from '@/components/analytics/MetricCard';
-import {getMarketingPhase1Dashboard} from '@/services/workspace/marketing-phase1';
-export const dynamic='force-dynamic';
-function leadStatus(s:string){return ({HOT:'Chaud',QUOTE_SENT:'Devis envoyé',FOLLOW_UP:'Relance',NEW:'Nouveau',QUALIFIED:'Qualifié',CONVERTED:'Converti',LOST:'Perdu'} as Record<string,string>)[s]||s}
-export default async function MarketingPage(){const user=await requirePageUser('AGENT');if(!hasRole(user.role,'ADMIN')&&user.department!=='MARKETING')redirect('/overview?forbidden=1');const d=await getMarketingPhase1Dashboard();return <DoniShell title="Marketing" active="/marketing" user={user}><section className="marketingHero"><div><span className="workspaceKicker">Marketing & croissance</span><h2>Tableau de bord marketing</h2><p>Publier, répondre, qualifier les prospects, relancer et mesurer la conversion depuis un seul espace.</p></div><div className="marketingHeroActions"><Link className="btn primary" href="/marketing/leads">+ Nouveau prospect</Link><Link className="btn" href="/marketing/content">Planifier contenu</Link></div></section><div className="grid"><MetricCard label="Leads aujourd'hui" value={d.metrics.dayLeads} tone={d.metrics.dayLeads>=d.goals.daily.leadsMin?'good':'warn'}/><MetricCard label="Prospects chauds" value={d.metrics.hot} tone={d.metrics.hot?'warn':'default'}/><MetricCard label="Relances dues" value={d.metrics.due} tone={d.metrics.due?'bad':'good'}/><MetricCard label="Conversion prospects" value={`${d.metrics.conversion}%`} tone={d.metrics.conversion>0?'good':'default'}/></div><div className="marketingQuickNav"><Link href="/marketing/leads"><span>◎</span><div><strong>Leads & Prospects</strong><small>{d.metrics.totalLeads} enregistrés</small></div></Link><Link href="/marketing/content"><span>▦</span><div><strong>Calendrier contenu</strong><small>{d.metrics.weekPublished} publié(s) cette semaine</small></div></Link><Link href="/marketing/objectives"><span>↗</span><div><strong>Objectifs</strong><small>Jour · semaine · mois</small></div></Link><Link href="/tasks"><span>✓</span><div><strong>Tâches Marketing</strong><small>{d.metrics.openTasks} ouverte(s)</small></div></Link></div><div className="marketingDashboardGrid"><section><h2 className="sectionTitle">À traiter maintenant</h2><div className="card marketingQueue"><div className="marketingQueueTitle">Relances dues <b>{d.metrics.due}</b></div>{d.due.map(x=><Link className="marketingQueueRow" href="/marketing/leads" key={x.id}><div><strong>{x.name}</strong><small>{x.destination||'Destination non définie'} · {leadStatus(x.status)}</small></div><span>{x.nextFollowUpAt?new Date(x.nextFollowUpAt).toLocaleString('fr-FR'):'—'}</span></Link>)}{!d.due.length?<div className="emptyState">Aucune relance en retard.</div>:null}</div><div className="card marketingQueue"><div className="marketingQueueTitle">Prospects chauds <b>{d.metrics.hot}</b></div>{d.hot.map(x=><Link className="marketingQueueRow" href="/marketing/leads" key={x.id}><div><strong>{x.name}</strong><small>{x.source} · {x.destination||'Destination non définie'}</small></div><span className="badge warn">{leadStatus(x.status)}</span></Link>)}{!d.hot.length?<div className="emptyState">Aucun prospect chaud actuellement.</div>:null}</div></section><aside><h2 className="sectionTitle">Production & équipe</h2><div className="card marketingQueue"><div className="marketingQueueTitle">Contenus à venir <b>{d.scheduled.length}</b></div>{d.scheduled.map(x=><Link className="marketingQueueRow" href="/marketing/content" key={x.id}><div><strong>{x.title}</strong><small>{x.platform} · {x.format} · {x.ownerName||'Non assigné'}</small></div><span>{x.scheduledAt?new Date(x.scheduledAt).toLocaleString('fr-FR'):'—'}</span></Link>)}{!d.scheduled.length?<div className="emptyState">Aucun contenu programmé.</div>:null}</div><div className="card marketingQueue"><div className="marketingQueueTitle">Tâches Marketing <b>{d.tasks.length}</b></div>{d.tasks.map(t=><Link className="marketingQueueRow" href={`/tasks?focus=${encodeURIComponent(t.id)}`} key={t.id}><div><strong>{t.title}</strong><small>{t.assigneeName||'Non assignée'} · {t.status}</small></div><span className={`badge ${t.priority==='URGENT'?'badBadge':t.priority==='HIGH'?'warn':'ok'}`}>{t.priority}</span></Link>)}{!d.tasks.length?<div className="emptyState">Aucune tâche Marketing ouverte.</div>:null}</div></aside></div><section className="card marketingObjectivesStrip"><div><span>Aujourd'hui</span><strong>{d.metrics.dayLeads}/{d.goals.daily.leadsMin} leads minimum</strong><small>{d.metrics.dayPublished}/{d.goals.daily.publicationsMin} contenu minimum</small></div><div><span>Cette semaine</span><strong>{d.metrics.weekLeads}/{d.goals.weekly.leadsMin} leads minimum</strong><small>{d.metrics.weekSales}/{d.goals.weekly.salesMin} conversions minimum</small></div><div><span>Ce mois</span><strong>{d.metrics.monthLeads}/{d.goals.monthly.leadsMin} leads minimum</strong><small>{d.metrics.monthSales}/{d.goals.monthly.salesMin} conversions minimum</small></div><Link href="/marketing/objectives">Voir tous les objectifs →</Link></section></DoniShell>}
+import { redirect } from 'next/navigation';
+import { DoniShell } from '@/components/DoniShell';
+import { requirePageUser } from '@/lib/auth/session';
+import { hasRole } from '@/lib/auth/permissions';
+import { MetricCard } from '@/components/analytics/MetricCard';
+import { getMarketingPhase1Dashboard } from '@/services/workspace/marketing-phase1';
+export const dynamic = 'force-dynamic';
+function leadStatus(s: string) {
+  return (
+    (
+      {
+        HOT: 'Chaud',
+        QUOTE_SENT: 'Devis envoyé',
+        FOLLOW_UP: 'Relance',
+        NEW: 'Nouveau',
+        QUALIFIED: 'Qualifié',
+        CONVERTED: 'Converti',
+        LOST: 'Perdu',
+      } as Record<string, string>
+    )[s] || s
+  );
+}
+export default async function MarketingPage() {
+  const user = await requirePageUser('AGENT');
+  if (!hasRole(user.role, 'ADMIN') && user.department !== 'MARKETING') redirect('/overview?forbidden=1');
+  const d = await getMarketingPhase1Dashboard();
+  return (
+    <DoniShell title="Marketing" active="/marketing" user={user}>
+      <section className="marketingHero">
+        <div>
+          <span className="workspaceKicker">Marketing & croissance</span>
+          <h2>Tableau de bord marketing</h2>
+          <p>
+            Publier, répondre, qualifier les prospects, relancer et mesurer la conversion depuis un seul
+            espace.
+          </p>
+        </div>
+        <div className="marketingHeroActions">
+          <Link className="btn primary" href="/marketing/leads">
+            + Nouveau prospect
+          </Link>
+          <Link className="btn" href="/marketing/content">
+            Planifier contenu
+          </Link>
+        </div>
+      </section>
+      <div className="grid">
+        <MetricCard
+          label="Leads aujourd'hui"
+          value={d.metrics.dayLeads}
+          tone={d.metrics.dayLeads >= d.goals.daily.leadsMin ? 'good' : 'warn'}
+        />
+        <MetricCard
+          label="Prospects chauds"
+          value={d.metrics.hot}
+          tone={d.metrics.hot ? 'warn' : 'default'}
+        />
+        <MetricCard label="Relances dues" value={d.metrics.due} tone={d.metrics.due ? 'bad' : 'good'} />
+        <MetricCard
+          label="Conversion prospects"
+          value={`${d.metrics.conversion}%`}
+          tone={d.metrics.conversion > 0 ? 'good' : 'default'}
+        />
+      </div>
+      <div className="marketingQuickNav">
+        <Link href="/marketing/leads">
+          <span>◎</span>
+          <div>
+            <strong>Leads & Prospects</strong>
+            <small>{d.metrics.totalLeads} enregistrés</small>
+          </div>
+        </Link>
+        <Link href="/marketing/content">
+          <span>▦</span>
+          <div>
+            <strong>Calendrier contenu</strong>
+            <small>{d.metrics.weekPublished} publié(s) cette semaine</small>
+          </div>
+        </Link>
+        <Link href="/marketing/objectives">
+          <span>↗</span>
+          <div>
+            <strong>Objectifs</strong>
+            <small>Jour · semaine · mois</small>
+          </div>
+        </Link>
+        <Link href="/tasks">
+          <span>✓</span>
+          <div>
+            <strong>Tâches Marketing</strong>
+            <small>{d.metrics.openTasks} ouverte(s)</small>
+          </div>
+        </Link>
+      </div>
+      <div className="marketingDashboardGrid">
+        <section>
+          <h2 className="sectionTitle">À traiter maintenant</h2>
+          <div className="card marketingQueue">
+            <div className="marketingQueueTitle">
+              Relances dues <b>{d.metrics.due}</b>
+            </div>
+            {d.due.map((x) => (
+              <Link className="marketingQueueRow" href="/marketing/leads" key={x.id}>
+                <div>
+                  <strong>{x.name}</strong>
+                  <small>
+                    {x.destination || 'Destination non définie'} · {leadStatus(x.status)}
+                  </small>
+                </div>
+                <span>{x.nextFollowUpAt ? new Date(x.nextFollowUpAt).toLocaleString('fr-FR') : '—'}</span>
+              </Link>
+            ))}
+            {!d.due.length ? <div className="emptyState">Aucune relance en retard.</div> : null}
+          </div>
+          <div className="card marketingQueue">
+            <div className="marketingQueueTitle">
+              Prospects chauds <b>{d.metrics.hot}</b>
+            </div>
+            {d.hot.map((x) => (
+              <Link className="marketingQueueRow" href="/marketing/leads" key={x.id}>
+                <div>
+                  <strong>{x.name}</strong>
+                  <small>
+                    {x.source} · {x.destination || 'Destination non définie'}
+                  </small>
+                </div>
+                <span className="badge warn">{leadStatus(x.status)}</span>
+              </Link>
+            ))}
+            {!d.hot.length ? <div className="emptyState">Aucun prospect chaud actuellement.</div> : null}
+          </div>
+        </section>
+        <aside>
+          <h2 className="sectionTitle">Production & équipe</h2>
+          <div className="card marketingQueue">
+            <div className="marketingQueueTitle">
+              Contenus à venir <b>{d.scheduled.length}</b>
+            </div>
+            {d.scheduled.map((x) => (
+              <Link className="marketingQueueRow" href="/marketing/content" key={x.id}>
+                <div>
+                  <strong>{x.title}</strong>
+                  <small>
+                    {x.platform} · {x.format} · {x.ownerName || 'Non assigné'}
+                  </small>
+                </div>
+                <span>{x.scheduledAt ? new Date(x.scheduledAt).toLocaleString('fr-FR') : '—'}</span>
+              </Link>
+            ))}
+            {!d.scheduled.length ? <div className="emptyState">Aucun contenu programmé.</div> : null}
+          </div>
+          <div className="card marketingQueue">
+            <div className="marketingQueueTitle">
+              Tâches Marketing <b>{d.tasks.length}</b>
+            </div>
+            {d.tasks.map((t) => (
+              <Link
+                className="marketingQueueRow"
+                href={`/tasks?focus=${encodeURIComponent(t.id)}`}
+                key={t.id}
+              >
+                <div>
+                  <strong>{t.title}</strong>
+                  <small>
+                    {t.assigneeName || 'Non assignée'} · {t.status}
+                  </small>
+                </div>
+                <span
+                  className={`badge ${t.priority === 'URGENT' ? 'badBadge' : t.priority === 'HIGH' ? 'warn' : 'ok'}`}
+                >
+                  {t.priority}
+                </span>
+              </Link>
+            ))}
+            {!d.tasks.length ? <div className="emptyState">Aucune tâche Marketing ouverte.</div> : null}
+          </div>
+        </aside>
+      </div>
+      <section className="card marketingObjectivesStrip">
+        <div>
+          <span>Aujourd'hui</span>
+          <strong>
+            {d.metrics.dayLeads}/{d.goals.daily.leadsMin} leads minimum
+          </strong>
+          <small>
+            {d.metrics.dayPublished}/{d.goals.daily.publicationsMin} contenu minimum
+          </small>
+        </div>
+        <div>
+          <span>Cette semaine</span>
+          <strong>
+            {d.metrics.weekLeads}/{d.goals.weekly.leadsMin} leads minimum
+          </strong>
+          <small>
+            {d.metrics.weekSales}/{d.goals.weekly.salesMin} conversions minimum
+          </small>
+        </div>
+        <div>
+          <span>Ce mois</span>
+          <strong>
+            {d.metrics.monthLeads}/{d.goals.monthly.leadsMin} leads minimum
+          </strong>
+          <small>
+            {d.metrics.monthSales}/{d.goals.monthly.salesMin} conversions minimum
+          </small>
+        </div>
+        <Link href="/marketing/objectives">Voir tous les objectifs →</Link>
+      </section>
+    </DoniShell>
+  );
+}
