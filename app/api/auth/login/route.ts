@@ -7,6 +7,7 @@ import { authFingerprint, isLoginBlocked, recordLoginAttempt } from '@/lib/auth/
 import { createMfaChallenge, getTotpStatus, type MfaMethod } from '@/lib/auth/mfa';
 import { getPasskeyStatus } from '@/lib/auth/passkeys';
 import { getUserOrgRole } from '@/lib/auth/org-roles';
+import { isServiceAccountLogin } from '@/lib/auth/service-token';
 
 export async function POST(req: Request) {
   try {
@@ -24,6 +25,25 @@ export async function POST(req: Request) {
         { status: 429, headers: { 'retry-after': '900' } },
       );
     const user = await db.portalUser.findUnique({ where: { username } });
+
+    // Automation: the service account authenticates with RUNBOOK_TOKEN as its
+    // password and gets a session already marked MFA-verified (the token is the
+    // strong factor). Lets the 35 phase runbooks keep their username/password shape.
+    if (user && user.active && isServiceAccountLogin(username, password)) {
+      await recordLoginAttempt(fingerprint, true);
+      await db.portalSession.deleteMany({ where: { userId: user.id, expiresAt: { lt: new Date() } } });
+      const orgRole = await getUserOrgRole(user.id, user.role);
+      await createPortalSession(user.id, req, 'SERVICE_TOKEN');
+      await audit({
+        userId: user.id,
+        action: 'AUTH_LOGIN',
+        entity: 'PortalUser',
+        entityId: user.id,
+        metadata: { mfa: true, method: 'SERVICE_TOKEN', orgRole },
+      });
+      return NextResponse.json({ success: true, role: user.role, serviceAccount: true });
+    }
+
     if (!user || !user.active || !verifyPassword(password, user.passwordHash)) {
       await recordLoginAttempt(fingerprint, false);
       await audit({ action: 'AUTH_LOGIN_FAILED', entity: 'PortalUser', metadata: { username } });

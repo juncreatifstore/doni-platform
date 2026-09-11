@@ -134,7 +134,11 @@ export async function markCurrentSessionPasswordReauth() {
 
 export async function hasRecentStepUp() {
   const sessionId = await currentSessionId();
-  if (!sessionId) return false;
+  if (!sessionId) {
+    // Service-token requests carry no session; the token itself is the strong factor.
+    const { isServiceTokenRequest } = await import('@/lib/auth/service-token');
+    return isServiceTokenRequest();
+  }
   const row = await db.appSetting.findUnique({ where: { key: `${PREFIX}${sessionId}` } });
   const v = row?.value as any;
   const at = v?.mfaVerifiedAt ? new Date(v.mfaVerifiedAt).getTime() : 0;
@@ -143,7 +147,10 @@ export async function hasRecentStepUp() {
 
 export async function hasRecentPasswordReauth() {
   const sessionId = await currentSessionId();
-  if (!sessionId) return false;
+  if (!sessionId) {
+    const { isServiceTokenRequest } = await import('@/lib/auth/service-token');
+    return isServiceTokenRequest();
+  }
   const row = await db.appSetting.findUnique({ where: { key: `${PREFIX}${sessionId}` } });
   const v = row?.value as any;
   const at = v?.passwordReauthAt ? new Date(v.passwordReauthAt).getTime() : 0;

@@ -113,7 +113,11 @@ export async function destroyPortalSession() {
 export async function getCurrentUser(): Promise<SafeUser | null> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  if (!token) {
+    // No browser session: allow the automation service token (see service-token.ts).
+    const { serviceTokenUser } = await import('@/lib/auth/service-token');
+    return serviceTokenUser();
+  }
   const session = await db.portalSession.findUnique({
     where: { tokenHash: hashToken(token) },
     include: { user: true },

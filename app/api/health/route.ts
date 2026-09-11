@@ -41,7 +41,12 @@ function checkEnv(): Check {
   const required = ['DATABASE_URL', 'SETTINGS_ENCRYPTION_KEY', 'CRON_SECRET', 'AUTH_MFA_ENCRYPTION_KEY'];
   const missing = required.filter((k) => !process.env[k]);
   if (!process.env.TICKET_LINK_SECRET && !process.env.AUTH_SECRET) missing.push('TICKET_LINK_SECRET');
-  return { ok: missing.length === 0, detail: missing.length ? `missing: ${missing.join(', ')}` : undefined };
+  // RUNBOOK_TOKEN is optional but the phase runbooks cannot run without it.
+  const detail = missing.length ? `missing: ${missing.join(', ')}` : undefined;
+  const runbook = process.env.RUNBOOK_TOKEN
+    ? 'runbook auth configured'
+    : 'RUNBOOK_TOKEN not set (phase runbooks disabled)';
+  return { ok: missing.length === 0, detail: [detail, runbook].filter(Boolean).join(' · ') };
 }
 
 export async function GET() {

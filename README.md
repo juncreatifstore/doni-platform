@@ -21,6 +21,19 @@ npm run dev
 (`.github/workflows/ci.yml`, qui ajoute `npm audit` et un scan de secrets). `GET /api/health`
 renvoie l’état de la base, du planificateur (heartbeat des crons) et des variables requises.
 
+## Compte de service pour les runbooks
+
+Les comptes humains privilégiés exigent une passkey, qu'un script ne peut pas fournir.
+Les runbooks utilisent donc un **compte de service** :
+
+1. Utilisateurs → créer `runbook`, rôle SUPER_ADMIN, mot de passe aléatoire (jamais utilisé).
+2. Vercel → `RUNBOOK_TOKEN` = 64 caractères aléatoires (`openssl rand -hex 32`), puis redeploy.
+3. Secrets GitHub du dépôt → `DONI_ADMIN_USERNAME=runbook`, `DONI_ADMIN_PASSWORD=<RUNBOOK_TOKEN>`.
+
+Le compte se connecte avec le jeton en guise de mot de passe et obtient une session
+déjà validée MFA ; toutes ses actions sont auditées sous son identité. Pour le
+désactiver : supprimer `RUNBOOK_TOKEN` ou désactiver l'utilisateur.
+
 ## Mise en service progressive
 
 Tous les interrupteurs de production (WhatsApp, Duffel, paiements, remboursements, émission,
