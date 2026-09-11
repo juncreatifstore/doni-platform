@@ -37,8 +37,10 @@ async function checkCrons(): Promise<Check> {
 }
 
 function checkEnv(): Check {
-  const required = ['DATABASE_URL', 'AUTH_SECRET', 'SETTINGS_ENCRYPTION_KEY', 'CRON_SECRET'];
+  // Sessions use opaque random tokens stored in DB, so no signing secret is needed for auth.
+  const required = ['DATABASE_URL', 'SETTINGS_ENCRYPTION_KEY', 'CRON_SECRET', 'AUTH_MFA_ENCRYPTION_KEY'];
   const missing = required.filter((k) => !process.env[k]);
+  if (!process.env.TICKET_LINK_SECRET && !process.env.AUTH_SECRET) missing.push('TICKET_LINK_SECRET');
   return { ok: missing.length === 0, detail: missing.length ? `missing: ${missing.join(', ')}` : undefined };
 }
 
