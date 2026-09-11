@@ -58,7 +58,7 @@ jobs:
           echo "| Intégration | Résultat | Message |" >> "$GITHUB_STEP_SUMMARY"
           echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
           for n in whatsapp whatsapp_webhook duffel stripe mercadopago paypal brevo facebook; do
-            r=$(curl -sS -b /tmp/c.txt -H 'content-type: application/json' --data "{\"name\":\"$n\"}" "$BASE_URL/api/settings/test")
+            r=$(curl -sS -b /tmp/c.txt -H 'content-type: application/json' --data "{\"integration\":\"$n\"}" "$BASE_URL/api/settings/test")
             line=$(node -e 'const r=JSON.parse(process.argv[1]);const t=r.result||r;console.log(`| '"$n"' | ${t.ok?"✅":"❌"} | ${(t.message||r.error||"").toString().replace(/\|/g,"/")} |`)' "$r")
             echo "$line" | tee -a "$GITHUB_STEP_SUMMARY"
           done
