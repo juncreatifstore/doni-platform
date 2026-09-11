@@ -40,7 +40,7 @@
     "prettier": "^3.9.6",
     "prisma": "^6.19.0",
     "typescript": "^5.9.0",
-    "vitest": "^2.1.9"
+    "vitest": "^3.2.7"
   },
   "engines": {
     "node": ">=22 <23"
